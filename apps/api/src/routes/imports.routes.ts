@@ -1,14 +1,14 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticate } from '../middleware/auth';
 import { importLibrary, parseImportCsv, type ImportItem } from '../services/imports.service';
-import { IMPORT_SOURCES, type ImportSource } from '../platforms';
+import { ALL_PLATFORMS, type Platform } from '../platforms';
 
 function userId(request: FastifyRequest): number {
   return (request.user as { sub: number }).sub;
 }
 
-function isImportSource(s: string): s is ImportSource {
-  return (IMPORT_SOURCES as string[]).includes(s);
+function isPlatform(s: string): s is Platform {
+  return (ALL_PLATFORMS as string[]).includes(s);
 }
 
 export async function importsRoutes(app: FastifyInstance) {
@@ -22,8 +22,8 @@ export async function importsRoutes(app: FastifyInstance) {
     auth,
     async (request, reply) => {
       const { source } = request.params;
-      if (!isImportSource(source)) {
-        return reply.status(400).send({ error: `Not an import source: ${source}` });
+      if (!isPlatform(source)) {
+        return reply.status(400).send({ error: `Unknown platform: ${source}` });
       }
 
       const body = request.body ?? {};

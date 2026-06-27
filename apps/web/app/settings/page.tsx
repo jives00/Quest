@@ -183,17 +183,7 @@ export default function SettingsPage() {
               These stores have no playtime API — import an owned-games list once, then maintain by hand.
               Paste one title per line (optionally <code>title,externalId</code>).
             </p>
-            <div className="flex flex-col gap-4 max-w-2xl">
-              {(["epic", "gog", "meta_quest"] as ImportSource[]).map((src) => (
-                <ImportCard
-                  key={src}
-                  source={src}
-                  account={accounts.find((a) => a.platform === src)}
-                  token={token}
-                  onChange={reload}
-                />
-              ))}
-            </div>
+            <ManualImportPanel accounts={accounts} token={token} onChange={reload} />
           </div>
         )}
 
@@ -905,20 +895,27 @@ function XboxCard({ account, token, onChange }: { account?: PlatformAccount; tok
   );
 }
 
-function ImportCard({
-  source,
-  account,
+const IMPORT_SOURCES: ImportSource[] = ["steam", "psn", "xbox", "epic", "gog", "meta_quest"];
+
+function ManualImportPanel({
+  accounts,
   token,
   onChange,
 }: {
-  source: ImportSource;
-  account?: PlatformAccount;
+  accounts: PlatformAccount[];
   token: string;
   onChange: () => void;
 }) {
+  const [source, setSource] = useState<ImportSource>("epic");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  function handleSourceChange(next: ImportSource) {
+    setSource(next);
+    setText("");
+    setMsg(null);
+  }
 
   async function doImport() {
     if (!text.trim()) return;
@@ -936,18 +933,28 @@ function ImportCard({
     }
   }
 
+  const account = accounts.find((a) => a.platform === source);
+
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5">
-      <div className="flex items-center justify-between mb-3">
-        <span className="font-semibold text-on-surface">{PLATFORM_LABELS[source as Platform]}</span>
+    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5 max-w-2xl">
+      <div className="flex items-center gap-3 mb-4">
+        <select
+          value={source}
+          onChange={(e) => handleSourceChange(e.target.value as ImportSource)}
+          className="bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface text-sm focus:outline-none focus:border-accent"
+        >
+          {IMPORT_SOURCES.map((src) => (
+            <option key={src} value={src}>{PLATFORM_LABELS[src as Platform]}</option>
+          ))}
+        </select>
         {account?.lastImportedAt && (
-          <span className="text-[10px] text-on-surface/40">last import {new Date(account.lastImportedAt).toLocaleDateString()}</span>
+          <span className="text-xs text-on-surface/40">last import {new Date(account.lastImportedAt).toLocaleDateString()}</span>
         )}
       </div>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        rows={4}
+        rows={6}
         placeholder={"Half-Life 2\nHollow Knight\nHades, 1145360"}
         className="w-full bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface text-sm font-mono focus:outline-none focus:border-accent resize-y"
       />

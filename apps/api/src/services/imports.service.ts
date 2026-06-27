@@ -1,7 +1,7 @@
 import { getPool } from '../db';
 import { resolveExternalId } from './matching.service';
 import { recordOwnership } from './library.service';
-import { IGDB_PLATFORM_HINT, PLATFORM_LABELS, type ImportSource } from '../platforms';
+import { IGDB_PLATFORM_HINT, PLATFORM_LABELS, type Platform } from '../platforms';
 
 // One-shot library imports for the cloud-API-less stores (Epic / GOG / Meta Quest).
 // The user obtains an owned-games list from the platform (see Settings docs), pastes
@@ -16,7 +16,7 @@ export interface ImportItem {
 }
 
 export interface ImportResult {
-  source: ImportSource;
+  source: Platform;
   imported: number;
   matched: number;
   provisional: number;
@@ -38,7 +38,7 @@ export function parseImportCsv(text: string): ImportItem[] {
 }
 
 /** Ensure an import-only platform_accounts row exists and stamp last_imported_at. */
-async function markImported(userId: number, source: ImportSource): Promise<void> {
+async function markImported(userId: number, source: Platform): Promise<void> {
   await getPool().query(
     `INSERT INTO platform_accounts (user_id, platform, enabled, health, import_label, last_imported_at)
      VALUES (?, ?, 1, 'green', ?, NOW())
@@ -49,7 +49,7 @@ async function markImported(userId: number, source: ImportSource): Promise<void>
 
 export async function importLibrary(
   userId: number,
-  source: ImportSource,
+  source: Platform,
   items: ImportItem[],
 ): Promise<ImportResult> {
   const result: ImportResult = { source, imported: 0, matched: 0, provisional: 0, skipped: 0 };

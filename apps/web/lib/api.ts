@@ -5,7 +5,7 @@ export type { LoginResponse };
 // ─── Domain types ──────────────────────────────────────────────────────────
 
 export type Platform = "steam" | "psn" | "xbox" | "epic" | "gog" | "meta_quest";
-export type ImportSource = "epic" | "gog" | "meta_quest";
+export type ImportSource = Platform;
 export type GameStatus = "unplayed" | "playing" | "completed" | "other";
 
 export const PLATFORM_LABELS: Record<Platform, string> = {

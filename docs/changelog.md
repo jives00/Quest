@@ -2,46 +2,34 @@
 
 ## June 27, 2026
 
-### Backend
-- Ownership: removed platforms no longer re-added by pollers — `DELETE /ownership` now writes a suppression row; `POST /ownership` clears it `d1d4f11`
-- Migration 030: `ownership_suppressions` table `d1d4f11`
-
 ### Frontend – Web
+- Settings › Imports: replaced three separate per-platform cards with a single panel with a platform dropdown; widened to all six platforms (Steam, PSN, Xbox, Epic, GOG, Meta Quest) `2fb1c59`
 - Navbar: replaced joystick material icon with Quest app icon image `e083006`
 - Favicon: added Quest icon as web favicon via Next.js `app/icon.png` `e083006`
-
-### Frontend – Mobile
-- App icon and adaptive icon replaced with Quest icon `e083006`
-
-### Backend
-- VR detection: add `"Oculus VR"` (IGDB platform 162), `"Meta Quest"`, and `"Meta Quest Pro"` to VR platform name set — Meta Quest games were not being flagged `32b9073`
-- Migration 028: backfill `vr_supported = 1` for existing games with Oculus VR / Meta Quest platform names missed by the original backfill `32b9073`
-- Migration 029: fix VR system list always showing empty — `system_key` ENUM was missing `'vr'` `9f410a9`
-
-### Frontend – Web
 - Wishlist: sort pills (A–Z, Release, Rating, Price); custom card grid showing title, release date, MC score, and current/low price on one line `47a17ef`
 
 ### Frontend – Mobile
-- Wishlist: sort chips (A–Z, Release, Rating, Price); MC score on each row; price condensed to one line (current | historical low) `47a17ef`
-
-### Backend
-- Lists: add `metacritic` to all `getListGames` query paths and `ListGameRow` interface `47a17ef`
-
-- API: reduce Fastify logger to `warn` level — silences per-request INFO noise `fbad340`
-- API: add diagnostic logging to ITAD price path (disabled key, missing steamAppId, lookup failures, overview failures) `fbad340`
-- API: add entry-level log to `getWishlistPrice` to confirm whether function is called on NAS `0b8a89f`; removed once resolved `2c45b83`
-- docker-compose: add `ITAD_API_KEY` and `OPENXBL_API_KEY` to container env block — these were in `.env` but never passed through, causing pricing to silently fail on NAS `fbad340`
-
-### Frontend – Mobile
+- App icon and adaptive icon replaced with Quest icon `e083006`
 - Dashboard: removed hero image, "Your Library" stats, and Recent Sessions; reordered to Currently Playing → Backlog → Last 14 Days; activity graph now always shows all 14 days (fills blanks with zero bars) `0ed59de`
 - Library: merged Status and Platform filter rows into a single scrollable chip row with a divider; fixed chip text clipping on Android (added paddingVertical to contentContainerStyle) `0ed59de`; increased ScrollView height 50→56 and dropped paddingVertical so bottom borders aren't clipped `0b8a89f`
 - Discover: fixed filter chip text clipping on Android `0ed59de`
 - Stats: replaced 8-card overview + separate By Status section with a 2×2 grid (Lifetime · Achievements · Backlog · Completed) matching the web layout; added `formatHours` compact formatter to prevent overflow on the Lifetime card `0ed59de`
-- Wishlist: promoted to bottom nav tab (swapped with Discover); fixed price display (ITAD returns dollars, was dividing by 100); added release date; differentiated "Not currently listed" from "No price data"; added historical low price display without requiring a current deal; show "TBD" when release date is unknown `0ed59de` `fbad340`
+- Wishlist: promoted to bottom nav tab (swapped with Discover); fixed price display (ITAD returns dollars, was dividing by 100); added release date; differentiated "Not currently listed" from "No price data"; added historical low price display without requiring a current deal; show "TBD" when release date is unknown `0ed59de` `fbad340`; sort chips (A–Z, Release, Rating, Price); MC score on each row; price condensed to one line (current | historical low) `47a17ef`
 - Lists: hide platform lists; remove systemKey subtitle from system list rows `fbad340`
 - Navigation: Wishlist is now a top-level tab; Discover moved to the More menu `0ed59de`
 
 ### Backend
+- Ownership: removed platforms no longer re-added by pollers — `DELETE /ownership` now writes a suppression row; `POST /ownership` clears it `d1d4f11`
+- Migration 030: `ownership_suppressions` table `d1d4f11`
+- VR detection: add `"Oculus VR"` (IGDB platform 162), `"Meta Quest"`, and `"Meta Quest Pro"` to VR platform name set — Meta Quest games were not being flagged `32b9073`
+- Migration 028: backfill `vr_supported = 1` for existing games with Oculus VR / Meta Quest platform names missed by the original backfill `32b9073`
+- Migration 029: fix VR system list always showing empty — `system_key` ENUM was missing `'vr'` `9f410a9`
+- Lists: add `metacritic` to all `getListGames` query paths and `ListGameRow` interface `47a17ef`
+- API: reduce Fastify logger to `warn` level — silences per-request INFO noise `fbad340`
+- API: add diagnostic logging to ITAD price path (disabled key, missing steamAppId, lookup failures, overview failures) `fbad340`
+- API: add entry-level log to `getWishlistPrice` to confirm whether function is called on NAS `0b8a89f`; removed once resolved `2c45b83`
+- docker-compose: add `ITAD_API_KEY` and `OPENXBL_API_KEY` to container env block — these were in `.env` but never passed through, causing pricing to silently fail on NAS `fbad340`
+- Imports: widen `POST /imports/:source` to accept all platforms (was epic/gog/meta_quest only) `2fb1c59`
 - Added `README.md` with setup instructions, environment variable reference, and deployment guide `0ed59de`
 - Added `docs/changelog.md` `0ed59de`
 
