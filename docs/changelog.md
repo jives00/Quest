@@ -2,6 +2,12 @@
 
 ## June 27, 2026
 
+### Backend (3)
+- API: add entry-level log to `getWishlistPrice` to confirm whether function is called on NAS `37d88a0`
+
+### Frontend – Mobile (3)
+- Library: increase filter chip ScrollView height 50→56, drop `paddingVertical` from contentContainerStyle so bottom borders aren't clipped on Android `37d88a0`
+
 ### Frontend – Mobile (2)
 - Library / Discover: fix filter chip vertical clipping on Android — horizontal ScrollView now has explicit height so chips are no longer cut off `fbad340`
 - Lists: hide platform lists; remove systemKey subtitle from system list rows `fbad340`
