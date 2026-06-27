@@ -11,7 +11,8 @@
 
 ### Backend
 - VR detection: add `"Oculus VR"` (IGDB platform 162), `"Meta Quest"`, and `"Meta Quest Pro"` to VR platform name set — Meta Quest games were not being flagged `32b9073`
-- Migration 028: backfill `vr_supported = 1` for existing games that have these platform names stored but were missed by the original backfill `32b9073`
+- Migration 028: backfill `vr_supported = 1` for existing games with Oculus VR / Meta Quest platform names missed by the original backfill `32b9073`
+- Migration 029: fix VR system list always showing empty — `system_key` ENUM was missing `'vr'`, so the list row was corrupted on insert and the service fallthrough returned no games `9f410a9`
 
 - API: reduce Fastify logger to `warn` level — silences per-request INFO noise `fbad340`
 - API: add diagnostic logging to ITAD price path (disabled key, missing steamAppId, lookup failures, overview failures) `fbad340`
