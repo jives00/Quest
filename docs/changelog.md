@@ -2,28 +2,19 @@
 
 ## June 27, 2026
 
-### Backend (3)
-- API: add entry-level log to `getWishlistPrice` to confirm whether function is called on NAS `37d88a0`
-
-### Frontend – Mobile (3)
-- Library: increase filter chip ScrollView height 50→56, drop `paddingVertical` from contentContainerStyle so bottom borders aren't clipped on Android `37d88a0`
-
-### Frontend – Mobile (2)
-- Library / Discover: fix filter chip vertical clipping on Android — horizontal ScrollView now has explicit height so chips are no longer cut off `fbad340`
-- Lists: hide platform lists; remove systemKey subtitle from system list rows `fbad340`
-- Wishlist: show "TBD" when release date is unknown `fbad340`
-
-### Backend (2)
+### Backend
 - API: reduce Fastify logger to `warn` level — silences per-request INFO noise `fbad340`
 - API: add diagnostic logging to ITAD price path (disabled key, missing steamAppId, lookup failures, overview failures) `fbad340`
+- API: add entry-level log to `getWishlistPrice` to confirm whether function is called on NAS `0b8a89f`
 - docker-compose: add `ITAD_API_KEY` and `OPENXBL_API_KEY` to container env block — these were in `.env` but never passed through, causing pricing to silently fail on NAS `fbad340`
 
 ### Frontend – Mobile
 - Dashboard: removed hero image, "Your Library" stats, and Recent Sessions; reordered to Currently Playing → Backlog → Last 14 Days; activity graph now always shows all 14 days (fills blanks with zero bars) `0ed59de`
-- Library: merged Status and Platform filter rows into a single scrollable chip row with a divider; fixed chip text clipping on Android (added paddingVertical to contentContainerStyle) `0ed59de`
+- Library: merged Status and Platform filter rows into a single scrollable chip row with a divider; fixed chip text clipping on Android (added paddingVertical to contentContainerStyle) `0ed59de`; increased ScrollView height 50→56 and dropped paddingVertical so bottom borders aren't clipped `0b8a89f`
 - Discover: fixed filter chip text clipping on Android `0ed59de`
 - Stats: replaced 8-card overview + separate By Status section with a 2×2 grid (Lifetime · Achievements · Backlog · Completed) matching the web layout; added `formatHours` compact formatter to prevent overflow on the Lifetime card `0ed59de`
-- Wishlist: promoted to bottom nav tab (swapped with Discover); fixed price display (ITAD returns dollars, was dividing by 100); added release date; differentiated "Not currently listed" from "No price data"; added historical low price display without requiring a current deal `0ed59de`
+- Wishlist: promoted to bottom nav tab (swapped with Discover); fixed price display (ITAD returns dollars, was dividing by 100); added release date; differentiated "Not currently listed" from "No price data"; added historical low price display without requiring a current deal; show "TBD" when release date is unknown `0ed59de` `fbad340`
+- Lists: hide platform lists; remove systemKey subtitle from system list rows `fbad340`
 - Navigation: Wishlist is now a top-level tab; Discover moved to the More menu `0ed59de`
 
 ### Backend
