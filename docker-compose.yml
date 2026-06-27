@@ -1,0 +1,44 @@
+services:
+  api:
+    image: ghcr.io/jives00/quest-api:latest
+    container_name: quest-api
+    ports:
+      - "3007:3007"
+    networks:
+      - shared-db
+    environment:
+      NODE_ENV: production
+      API_PORT: 3007
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      IGDB_CLIENT_ID: ${IGDB_CLIENT_ID}
+      IGDB_CLIENT_SECRET: ${IGDB_CLIENT_SECRET}
+      RAWG_API_KEY: ${RAWG_API_KEY}
+      STEAMGRIDDB_KEY: ${STEAMGRIDDB_KEY}
+      STEAM_API_KEY: ${STEAM_API_KEY}
+      STEAM_ID64: ${STEAM_ID64}
+      PSN_NPSSO: ${PSN_NPSSO}
+      SCROBBLE_API_KEY: ${SCROBBLE_API_KEY}
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/jives00/quest-web:latest
+    container_name: quest-web
+    ports:
+      - "3006:3000"
+    networks:
+      - shared-db
+    environment:
+      # Runtime proxy target for the Next.js /api rewrite (docker network DNS).
+      API_URL: http://quest-api:3007
+    restart: unless-stopped
+
+networks:
+  shared-db:
+    external: true

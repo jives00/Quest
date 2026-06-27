@@ -1,0 +1,144 @@
+const STEAMGRIDDB_BASE = 'https://www.steamgriddb.com/api/v2';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface SteamGridDbImage {
+  id: number;
+  score: number;
+  style: string;
+  url: string;
+  thumb: string;
+  tags: string[];
+  author: {
+    name: string;
+    steam64: string;
+    avatar: string;
+  };
+}
+
+interface SteamGridDbResponse<T> {
+  success: boolean;
+  data: T;
+}
+
+export interface SteamGridDbGame {
+  id: number;
+  name: string;
+  release_date: number | null;
+  types: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Enable guard
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true when STEAMGRIDDB_KEY is configured.
+ */
+export function isSteamGridDbEnabled(): boolean {
+  return Boolean(process.env.STEAMGRIDDB_KEY);
+}
+
+// ---------------------------------------------------------------------------
+// Internal GET helper
+// ---------------------------------------------------------------------------
+
+async function get<T>(path: string, params: Record<string, string> = {}): Promise<T> {
+  const key = process.env.STEAMGRIDDB_KEY ?? '';
+  const url = new URL(`${STEAMGRIDDB_BASE}${path}`);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${key}`,
+    },
+  });
+  if (!res.ok) throw new Error(`SteamGridDB ${res.status}: ${path}`);
+  return res.json() as Promise<T>;
+}
+
+// ---------------------------------------------------------------------------
+// Exported functions
+// ---------------------------------------------------------------------------
+
+/**
+ * Search SteamGridDB for a game by name.
+ * Returns null when STEAMGRIDDB_KEY is not set.
+ */
+export async function searchGame(name: string): Promise<SteamGridDbGame | null> {
+  if (!isSteamGridDbEnabled()) return null;
+
+  // SteamGridDB takes the search term as a path segment, not a query param.
+  const data = await get<SteamGridDbResponse<SteamGridDbGame[]>>(
+    `/search/autocomplete/${encodeURIComponent(name)}`,
+  );
+
+  return data.success && data.data.length > 0 ? (data.data[0] ?? null) : null;
+}
+
+/**
+ * Fetch grid (portrait box-art / cover) images for a SteamGridDB game id.
+ * Returns null when STEAMGRIDDB_KEY is not set.
+ */
+export async function getGrid(
+  steamgriddbGameId: number,
+): Promise<SteamGridDbImage[] | null> {
+  if (!isSteamGridDbEnabled()) return null;
+
+  const data = await get<SteamGridDbResponse<SteamGridDbImage[]>>(
+    `/grids/game/${steamgriddbGameId}`,
+  );
+  return data.success ? data.data : null;
+}
+
+/**
+ * Fetch hero (wide landscape) images for a SteamGridDB game id.
+ * Returns null when STEAMGRIDDB_KEY is not set.
+ */
+export async function getHeroArt(
+  steamgriddbGameId: number,
+): Promise<SteamGridDbImage[] | null> {
+  if (!isSteamGridDbEnabled()) return null;
+
+  const data = await get<SteamGridDbResponse<SteamGridDbImage[]>>(
+    `/heroes/game/${steamgriddbGameId}`,
+  );
+  return data.success ? data.data : null;
+}
+
+/**
+ * Convenience: look up a game by name then return its best grid image URL.
+ * Returns null when disabled or no results found.
+ */
+export async function getBestGridUrl(name: string): Promise<string | null> {
+  if (!isSteamGridDbEnabled()) return null;
+
+  const game = await searchGame(name);
+  if (!game) return null;
+
+  const grids = await getGrid(game.id);
+  if (!grids || grids.length === 0) return null;
+
+  // Sort by community score descending, take the best
+  const sorted = [...grids].sort((a, b) => b.score - a.score);
+  return sorted[0]?.url ?? null;
+}
+
+/**
+ * Convenience: look up a game by name then return its best hero art URL.
+ * Returns null when disabled or no results found.
+ */
+export async function getBestHeroUrl(name: string): Promise<string | null> {
+  if (!isSteamGridDbEnabled()) return null;
+
+  const game = await searchGame(name);
+  if (!game) return null;
+
+  const heroes = await getHeroArt(game.id);
+  if (!heroes || heroes.length === 0) return null;
+
+  const sorted = [...heroes].sort((a, b) => b.score - a.score);
+  return sorted[0]?.url ?? null;
+}

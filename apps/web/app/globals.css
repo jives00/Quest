@@ -1,0 +1,150 @@
+/* Theme color variables - space-separated for rgb(var / alpha) compatibility */
+
+/* ─── Dark themes (default) ─────────────────────────────────────────────── */
+:root,
+[data-theme="green-dark"] {
+  --accent-rgb: 34 197 94;
+  --accent-hover-rgb: 22 163 74;
+  --accent-light-rgb: 74 222 128;
+  --on-accent-bg: #052e16;
+  --glass-bg: rgba(28, 30, 38, 0.75);
+
+  --background-rgb: 28 30 38;
+  --surface-container-lowest-rgb: 18 20 27;
+  --surface-container-low-rgb: 30 32 41;
+  --surface-container-rgb: 38 40 50;
+  --surface-container-high-rgb: 50 52 64;
+  --surface-container-highest-rgb: 64 67 82;
+  --surface-variant-rgb: 64 67 82;
+
+  --on-surface-rgb: 240 240 246;
+  --on-surface-variant-rgb: 215 216 226;
+  --on-background-rgb: 240 240 246;
+
+  --outline-rgb: 133 175 135;
+  --outline-variant-rgb: 61 94 63;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+
+
+@layer base {
+  * {
+    @apply border-outline-variant;
+  }
+  body {
+    @apply bg-background text-on-surface font-sans antialiased;
+  }
+  .material-symbols-outlined {
+    font-family: "Material Symbols Outlined", sans-serif;
+    font-variation-settings: "FILL" 0, "wght" 400;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgb(var(--on-surface-rgb) / 0.08);
+  }
+  .green-glow-hover:hover {
+    box-shadow: 0 0 20px rgb(var(--accent-rgb) / 0.15);
+    border-color: rgb(var(--accent-rgb) / 0.3);
+  }
+}
+
+@layer utilities {
+  /* Dynamic accent color utilities - override Tailwind's generated accent classes */
+  .text-accent {
+    color: rgb(var(--accent-rgb)) !important;
+  }
+  .bg-accent {
+    background-color: rgb(var(--accent-rgb)) !important;
+  }
+  .border-accent {
+    border-color: rgb(var(--accent-rgb)) !important;
+  }
+  .text-accent-hover {
+    color: rgb(var(--accent-hover-rgb)) !important;
+  }
+  .bg-accent-hover {
+    background-color: rgb(var(--accent-hover-rgb)) !important;
+  }
+  .border-accent-hover {
+    border-color: rgb(var(--accent-hover-rgb)) !important;
+  }
+  .text-accent-light {
+    color: rgb(var(--accent-light-rgb)) !important;
+  }
+  .bg-accent-light {
+    background-color: rgb(var(--accent-light-rgb)) !important;
+  }
+  .border-accent-light {
+    border-color: rgb(var(--accent-light-rgb)) !important;
+  }
+
+  /* Opacity variants */
+  .bg-accent\/10 {
+    background-color: rgb(var(--accent-rgb) / 0.1) !important;
+  }
+  .bg-accent\/20 {
+    background-color: rgb(var(--accent-rgb) / 0.2) !important;
+  }
+  .bg-accent\/30 {
+    background-color: rgb(var(--accent-rgb) / 0.3) !important;
+  }
+  .bg-accent\/40 {
+    background-color: rgb(var(--accent-rgb) / 0.4) !important;
+  }
+  .bg-accent\/60 {
+    background-color: rgb(var(--accent-rgb) / 0.6) !important;
+  }
+  .border-accent\/30 {
+    border-color: rgb(var(--accent-rgb) / 0.3) !important;
+  }
+  .border-accent\/40 {
+    border-color: rgb(var(--accent-rgb) / 0.4) !important;
+  }
+  .border-accent\/60 {
+    border-color: rgb(var(--accent-rgb) / 0.6) !important;
+  }
+  .shadow-accent\/20 {
+    --tw-shadow-color: rgb(var(--accent-rgb) / 0.2) !important;
+  }
+
+  /* Hover variants */
+  .hover\:text-accent:hover {
+    color: rgb(var(--accent-rgb)) !important;
+  }
+  .hover\:bg-accent:hover {
+    background-color: rgb(var(--accent-rgb)) !important;
+  }
+  .hover\:border-accent:hover {
+    border-color: rgb(var(--accent-rgb)) !important;
+  }
+  .hover\:bg-accent-hover:hover {
+    background-color: rgb(var(--accent-hover-rgb)) !important;
+  }
+  .hover\:text-accent-light:hover {
+    color: rgb(var(--accent-light-rgb)) !important;
+  }
+  .hover\:border-accent\/30:hover {
+    border-color: rgb(var(--accent-rgb) / 0.3) !important;
+  }
+  .hover\:border-accent\/40:hover {
+    border-color: rgb(var(--accent-rgb) / 0.4) !important;
+  }
+  .hover\:bg-accent\/20:hover {
+    background-color: rgb(var(--accent-rgb) / 0.2) !important;
+  }
+  .hover\:bg-accent\/30:hover {
+    background-color: rgb(var(--accent-rgb) / 0.3) !important;
+  }
+  .hover\:bg-accent\/40:hover {
+    background-color: rgb(var(--accent-rgb) / 0.4) !important;
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "name": "@quest/api",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "test": "vitest run",
+    "migrate": "tsx scripts/migrate.ts",
+    "refresh-all": "tsx scripts/refresh-all.ts",
+    "import-wishlist": "tsx scripts/import-wishlist.ts",
+    "dedup-provisional": "tsx scripts/dedup-provisional.ts",
+    "backfill-achievements": "tsx scripts/backfill-achievements.ts",
+    "backfill-hltb-playtime": "tsx scripts/backfill-hltb-playtime.ts",
+    "completions-match": "tsx scripts/completions-match.ts",
+    "completions-import": "tsx scripts/completions-import.ts",
+    "seed-dashboard": "tsx scripts/seed-dashboard.ts",
+    "unseed-dashboard": "tsx scripts/unseed-dashboard.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^9",
+    "@fastify/cors": "^8.5.0",
+    "@fastify/helmet": "^11",
+    "@fastify/jwt": "^7",
+    "@fastify/rate-limit": "^9",
+    "@quest/types": "workspace:*",
+    "bcryptjs": "^2",
+    "dotenv": "^16",
+    "exceljs": "^4.4.0",
+    "fastify": "^4",
+    "jsonwebtoken": "^9",
+    "mysql2": "^3",
+    "pino-pretty": "^13.1.3",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2",
+    "@types/jsonwebtoken": "^9",
+    "@types/node": "^22",
+    "@types/supertest": "^6",
+    "supertest": "^7",
+    "tsx": "^4",
+    "typescript": "^5",
+    "vitest": "^2"
+  }
+}

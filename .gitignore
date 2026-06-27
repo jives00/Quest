@@ -1,0 +1,19 @@
+plans/
+.claude/
+
+# Secrets — never commit
+.env
+.env.local
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+.next/
+*.tsbuildinfo
+
+# Logs / OS
+*.log
+.DS_Store
