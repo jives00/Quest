@@ -5,7 +5,7 @@ ARG API_URL=http://quest-api:3007
 
 WORKDIR /app
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.33.2
 
 COPY tsconfig.json pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/ ./packages/

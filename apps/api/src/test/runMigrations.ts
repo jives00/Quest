@@ -36,10 +36,9 @@ export async function runMigrations(dbName: string, dbConfig: DbConfig): Promise
       if (applied.has(file)) continue;
       try {
         const sql = readFileSync(join(migrationsDir, file), 'utf8');
-        const statements = sql.split(';').map(s => s.trim()).filter(Boolean);
-        for (const stmt of statements) {
-          await conn.query(stmt);
-        }
+        // multipleStatements is enabled, so let the MySQL server parse the whole
+        // file. A naive split(';') breaks on semicolons inside SQL comments.
+        await conn.query(sql);
         await conn.query('INSERT INTO migrations (name) VALUES (?)', [file]);
         console.log(`  applied: ${file}`);
       } catch (err: any) {

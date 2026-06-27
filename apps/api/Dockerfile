@@ -2,7 +2,7 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-RUN npm install -g pnpm
+RUN npm install -g pnpm@10.33.2
 
 COPY tsconfig.json pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY packages/ ./packages/
