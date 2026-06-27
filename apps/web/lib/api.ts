@@ -97,6 +97,7 @@ export interface LibraryGame {
   completionPct: number | null;
   matchStatus: MatchStatus;
   firstReleaseDate?: string | null;
+  metacritic?: number | null;
 }
 
 export interface IgdbSearchResult {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -21,9 +22,51 @@ import type { SharedDetailParamList } from "../navigation/types";
 
 type Nav = NativeStackNavigationProp<SharedDetailParamList>;
 
+type SortKey = "alpha" | "release" | "rating" | "price";
+
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "alpha", label: "A–Z" },
+  { key: "release", label: "Release" },
+  { key: "rating", label: "Rating" },
+  { key: "price", label: "Price" },
+];
+
 interface WishlistEntry {
   game: LibraryGame;
   price: WishlistPrice | null;
+}
+
+function sortEntries(entries: WishlistEntry[], sort: SortKey): WishlistEntry[] {
+  return [...entries].sort((a, b) => {
+    switch (sort) {
+      case "alpha":
+        return a.game.title.localeCompare(b.game.title);
+      case "release": {
+        const ad = a.game.firstReleaseDate ?? null;
+        const bd = b.game.firstReleaseDate ?? null;
+        if (!ad && !bd) return 0;
+        if (!ad) return 1;
+        if (!bd) return -1;
+        return bd.localeCompare(ad);
+      }
+      case "rating": {
+        const ar = a.game.metacritic ?? null;
+        const br = b.game.metacritic ?? null;
+        if (ar == null && br == null) return 0;
+        if (ar == null) return 1;
+        if (br == null) return -1;
+        return br - ar;
+      }
+      case "price": {
+        const ap = a.price?.current?.price ?? null;
+        const bp = b.price?.current?.price ?? null;
+        if (ap == null && bp == null) return 0;
+        if (ap == null) return 1;
+        if (bp == null) return -1;
+        return ap - bp;
+      }
+    }
+  });
 }
 
 export default function WishlistScreen() {
@@ -33,10 +76,10 @@ export default function WishlistScreen() {
   const [entries, setEntries] = useState<WishlistEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [sort, setSort] = useState<SortKey>("alpha");
 
   const load = useCallback(async () => {
     if (!token) return;
-    // Wishlist is the system list with systemKey === 'wishlist'
     const lists = await api.getLists(token);
     const wishlist = lists.find((l) => l.systemKey === "wishlist");
     if (!wishlist) {
@@ -45,7 +88,6 @@ export default function WishlistScreen() {
     }
     const detail: QuestListDetail = await api.getListDetail(wishlist.id, token);
     const games = detail.games ?? [];
-    // Fetch prices in parallel (best-effort)
     const priceResults = await Promise.allSettled(
       games.map((g) => api.getWishlistPrice(g.id, token))
     );
@@ -74,6 +116,8 @@ export default function WishlistScreen() {
     }
   }
 
+  const sorted = useMemo(() => sortEntries(entries, sort), [entries, sort]);
+
   if (loading) {
     return (
       <View style={s.center}>
@@ -85,7 +129,7 @@ export default function WishlistScreen() {
   return (
     <SafeAreaView style={s.root} edges={["top"]}>
       <FlatList
-        data={entries}
+        data={sorted}
         keyExtractor={(e) => String(e.game.id)}
         contentContainerStyle={s.list}
         refreshControl={
@@ -98,8 +142,27 @@ export default function WishlistScreen() {
         }
         ListHeaderComponent={
           <View style={s.header}>
-            <Text style={s.title}>Wishlist</Text>
-            <Text style={s.count}>{entries.length} games</Text>
+            <View style={s.headerTop}>
+              <Text style={s.title}>Wishlist</Text>
+              <Text style={s.count}>{entries.length} games</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.sortRow}
+            >
+              {SORT_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.key}
+                  onPress={() => setSort(o.key)}
+                  style={[s.sortChip, sort === o.key && s.sortChipActive]}
+                >
+                  <Text style={[s.sortChipText, sort === o.key && s.sortChipTextActive]}>
+                    {o.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         }
         ListEmptyComponent={
@@ -128,19 +191,20 @@ export default function WishlistScreen() {
               <Text style={s.releaseDate}>
                 {item.game.firstReleaseDate ? formatDate(item.game.firstReleaseDate) : "TBD"}
               </Text>
-              {item.price?.current ? (
-                <Text style={s.price}>
-                  ${item.price.current.price.toFixed(2)} · {item.price.current.shop}
+              {item.game.metacritic != null && (
+                <Text style={s.rating}>MC {item.game.metacritic}</Text>
+              )}
+              {item.price ? (
+                <Text style={item.price.current ? s.price : s.priceNA}>
+                  {item.price.current
+                    ? `$${item.price.current.price.toFixed(2)} · ${item.price.current.shop}`
+                    : "Not currently listed"}
+                  {item.price.lowest
+                    ? ` | Low $${item.price.lowest.price.toFixed(2)}`
+                    : ""}
                 </Text>
-              ) : item.price ? (
-                <Text style={s.priceNA}>Not currently listed</Text>
               ) : (
                 <Text style={s.priceNA}>No price data</Text>
-              )}
-              {item.price?.lowest && (
-                <Text style={s.priceLowest}>
-                  Historical low: ${item.price.lowest.price.toFixed(2)}
-                </Text>
               )}
             </View>
           </TouchableOpacity>
@@ -158,9 +222,20 @@ const s = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#1c1e26",
   },
-  header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  header: { paddingTop: 16, paddingBottom: 4 },
+  headerTop: { paddingHorizontal: 16, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "900", color: "#f0f0f6" },
   count: { color: "#888", fontSize: 13, marginTop: 2 },
+  sortRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingBottom: 12 },
+  sortChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#2a2d3a",
+  },
+  sortChipActive: { backgroundColor: "#6c47ff" },
+  sortChipText: { color: "#888", fontSize: 13, fontWeight: "600" },
+  sortChipTextActive: { color: "#fff" },
   list: { paddingBottom: 32 },
   empty: { color: "#888", textAlign: "center", marginTop: 40, fontSize: 14 },
   row: {
@@ -177,7 +252,7 @@ const s = StyleSheet.create({
   info: { flex: 1 },
   name: { color: "#f0f0f6", fontSize: 14, fontWeight: "600" },
   releaseDate: { color: "#888", fontSize: 11, marginTop: 2 },
+  rating: { color: "#aaa", fontSize: 11, marginTop: 2 },
   price: { color: "#4caf50", fontSize: 12, marginTop: 3 },
   priceNA: { color: "#555", fontSize: 12, marginTop: 3 },
-  priceLowest: { color: "#888", fontSize: 11, marginTop: 1 },
 });

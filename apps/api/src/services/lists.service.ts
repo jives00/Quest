@@ -20,6 +20,7 @@ export interface ListGameRow {
   status: string;
   sortOrder: number;
   firstReleaseDate: string | null;
+  metacritic: number | null;
 }
 
 function slugify(name: string): string {
@@ -91,7 +92,7 @@ export async function getListGames(userId: number, listId: number): Promise<List
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
               COALESCE(gs.status, 'unplayed') AS status, 0 AS sortOrder,
-              g.first_release_date AS firstReleaseDate
+              g.first_release_date AS firstReleaseDate, g.metacritic
          FROM games g
          LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
         WHERE g.vr_supported = 1
@@ -106,6 +107,7 @@ export async function getListGames(userId: number, listId: number): Promise<List
       status: r.status as string,
       sortOrder: 0,
       firstReleaseDate: r.firstReleaseDate as string | null,
+      metacritic: r.metacritic != null ? Number(r.metacritic) : null,
     }));
   }
 
@@ -113,7 +115,7 @@ export async function getListGames(userId: number, listId: number): Promise<List
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
               COALESCE(gs.status, 'unplayed') AS status, 0 AS sortOrder,
-              g.first_release_date AS firstReleaseDate
+              g.first_release_date AS firstReleaseDate, g.metacritic
          FROM games g
          JOIN ownership o ON o.game_id = g.id AND o.user_id = ? AND o.platform = ?
          LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
@@ -128,6 +130,7 @@ export async function getListGames(userId: number, listId: number): Promise<List
       status: r.status as string,
       sortOrder: 0,
       firstReleaseDate: r.firstReleaseDate as string | null,
+      metacritic: r.metacritic != null ? Number(r.metacritic) : null,
     }));
   }
 
@@ -135,7 +138,7 @@ export async function getListGames(userId: number, listId: number): Promise<List
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
             COALESCE(gs.status, 'unplayed') AS status, li.sort_order AS sortOrder,
-            g.first_release_date AS firstReleaseDate
+            g.first_release_date AS firstReleaseDate, g.metacritic
        FROM list_items li
        JOIN games g ON g.id = li.game_id
        LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
@@ -152,6 +155,7 @@ export async function getListGames(userId: number, listId: number): Promise<List
     status: r.status as string,
     sortOrder: r.sortOrder as number,
     firstReleaseDate: r.firstReleaseDate as string | null,
+    metacritic: r.metacritic != null ? Number(r.metacritic) : null,
   }));
 }
 
