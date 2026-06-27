@@ -15,7 +15,8 @@ import {
 } from './steamgriddb.client';
 import { searchGames as rawgSearch, isRawgEnabled } from './rawg.client';
 import { fetchAppDetails, fetchReviewSummary } from './steam-store.client';
-import { getSteamDbAchievementGroups, getGameAchievementsV1, getPlayerAchievements } from './steam.client';
+import { getGameAchievementsV1, getPlayerAchievements } from './steam.client';
+import { getTrueSteamAchievementGroups } from './tsa.client';
 import { searchHltb, isHltbEnabled } from './hltb.client';
 import { lookupGameId, getPriceOverview, isItadEnabled } from './itad.client';
 export { isItadEnabled } from './itad.client';
@@ -616,7 +617,7 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
   if (steamAppId) {
     try {
       const [achRows] = await pool.query<RowDataPacket[]>(
-        `SELECT api_name FROM achievements WHERE game_id = ?`,
+        `SELECT api_name, name FROM achievements WHERE game_id = ?`,
         [gameId],
       );
       if (achRows.length > 0) {
@@ -646,16 +647,45 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
           );
         }
 
-        // DLC grouping
-        const dlcGroups = await getSteamDbAchievementGroups(appIdNum);
-        for (const group of dlcGroups) {
-          if (!group.dlcAppId || group.achievementApiNames.length === 0) continue;
-          const placeholders = group.achievementApiNames.map(() => '?').join(', ');
+        // DLC grouping — TrueSteamAchievements exposes display names, so match
+        // those against this game's stored achievement names (Steam doesn't tag
+        // achievements by DLC, and dlc_app_id stays null — we only have names).
+        const dlcGroups = await getTrueSteamAchievementGroups(appIdNum);
+        if (dlcGroups.length > 0) {
+          const normalize = (s: string) =>
+            s.toLowerCase().replace(/\s+/g, ' ').trim();
+          const apiNameByName = new Map<string, string>();
+          for (const row of achRows) {
+            const nm = row.name as string | null;
+            if (nm) apiNameByName.set(normalize(nm), row.api_name as string);
+          }
+
+          // Reset any prior grouping so removed/renamed groups don't linger.
           await pool.query(
-            `UPDATE achievements SET dlc_app_id = ?, dlc_app_name = ?
-              WHERE game_id = ? AND api_name IN (${placeholders})`,
-            [group.dlcAppId, group.dlcAppName, gameId, ...group.achievementApiNames],
+            `UPDATE achievements SET dlc_app_name = NULL WHERE game_id = ?`,
+            [gameId],
           );
+
+          let matched = 0;
+          for (const group of dlcGroups) {
+            const apiNames = group.achievementNames
+              .map((n) => apiNameByName.get(normalize(n)))
+              .filter((v): v is string => Boolean(v));
+            if (apiNames.length === 0) continue;
+            matched += apiNames.length;
+            const placeholders = apiNames.map(() => '?').join(', ');
+            await pool.query(
+              `UPDATE achievements SET dlc_app_name = ?
+                WHERE game_id = ? AND api_name IN (${placeholders})`,
+              [group.dlcName, gameId, ...apiNames],
+            );
+          }
+          const tsaTotal = dlcGroups.reduce((s, g) => s + g.achievementNames.length, 0);
+          if (matched < tsaTotal) {
+            console.warn(
+              `DLC grouping for game ${gameId}: matched ${matched}/${tsaTotal} TSA achievements by name`,
+            );
+          }
         }
       }
     } catch (err) {

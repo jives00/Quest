@@ -7,6 +7,7 @@
 - Navbar: replaced joystick material icon with Quest app icon image `e083006`
 - Favicon: added Quest icon as web favicon via Next.js `app/icon.png` `e083006`
 - Wishlist: sort pills (A–Z, Release, Rating, Price); custom card grid showing title, release date, MC score, and current/low price on one line `47a17ef`
+- Game detail: achievements now group into per-DLC sections (Base Game + expansion/DLC groups) `2e9f25d`
 
 ### Frontend – Mobile
 - App icon and adaptive icon replaced with Quest icon `e083006`
@@ -19,6 +20,7 @@
 - Navigation: Wishlist is now a top-level tab; Discover moved to the More menu `0ed59de`
 
 ### Backend
+- Achievements: group by DLC via TrueSteamAchievements (server-side scrape, `tsa.client`) — replaces the Cloudflare-gated SteamDB endpoint; matches achievements by display name and sets `dlc_app_name` on enrich; uses `node:https` since undici/fetch is 403'd `2e9f25d`
 - Ownership: removed platforms no longer re-added by pollers — `DELETE /ownership` now writes a suppression row; `POST /ownership` clears it `d1d4f11`
 - Migration 030: `ownership_suppressions` table `d1d4f11`
 - VR detection: add `"Oculus VR"` (IGDB platform 162), `"Meta Quest"`, and `"Meta Quest Pro"` to VR platform name set — Meta Quest games were not being flagged `32b9073`

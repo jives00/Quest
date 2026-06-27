@@ -91,12 +91,6 @@ export interface SteamGameAchievement {
   globalPct: number | null;
 }
 
-export interface SteamDbAchievementGroup {
-  dlcAppId: number | null;
-  dlcAppName: string;
-  achievementApiNames: string[];
-}
-
 // ---------------------------------------------------------------------------
 // Raw Steam response shapes (internal — not exported)
 // ---------------------------------------------------------------------------
@@ -454,45 +448,4 @@ export async function getGameAchievementsV1(
     iconGray: a.icon_gray ? `${iconBase}${a.icon_gray}` : null,
     globalPct: a.player_percent_unlocked != null ? parseFloat(a.player_percent_unlocked) : null,
   }));
-}
-
-/**
- * Fetch achievement-to-DLC grouping from SteamDB's extension API.
- *
- * Returns `[]` on any failure — DLC grouping is best-effort only.
- * Unofficial endpoint; may break or rate-limit without notice.
- */
-export async function getSteamDbAchievementGroups(
-  appId: number,
-): Promise<SteamDbAchievementGroup[]> {
-  try {
-    const url = `https://extension.steamdb.info/api/ExtensionGetAchievements/?appid=${appId}`;
-    const res = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-        'X-Requested-With': 'SteamDB',
-      },
-    });
-    if (!res.ok) return [];
-
-    const body = await res.json() as {
-      success?: boolean;
-      data?: Array<{
-        name?: string;
-        dlcAppName?: string;
-        dlcAppId?: number;
-        achievementApiNames?: string[];
-      }>;
-    };
-
-    if (!body.success || !Array.isArray(body.data)) return [];
-
-    return body.data.map(g => ({
-      dlcAppId: g.dlcAppId ?? null,
-      dlcAppName: g.dlcAppName ?? g.name ?? 'DLC',
-      achievementApiNames: g.achievementApiNames ?? [],
-    }));
-  } catch {
-    return [];
-  }
 }

@@ -412,7 +412,7 @@ export default function GameDetailPage() {
   const achievementGroups = (() => {
     const map = new Map<string, Achievement[]>();
     for (const a of sortedAchievements) {
-      const key = a.dlcAppId != null ? String(a.dlcAppId) : "__base__";
+      const key = a.dlcAppName != null && a.dlcAppName !== "" ? a.dlcAppName : "__base__";
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(a);
     }
