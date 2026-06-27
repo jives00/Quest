@@ -125,11 +125,9 @@ export default function WishlistScreen() {
               <Text style={s.name} numberOfLines={2}>
                 {item.game.title}
               </Text>
-              {item.game.firstReleaseDate && (
-                <Text style={s.releaseDate}>
-                  {formatDate(item.game.firstReleaseDate)}
-                </Text>
-              )}
+              <Text style={s.releaseDate}>
+                {item.game.firstReleaseDate ? formatDate(item.game.firstReleaseDate) : "TBD"}
+              </Text>
               {item.price?.current ? (
                 <Text style={s.price}>
                   ${item.price.current.price.toFixed(2)} · {item.price.current.shop}

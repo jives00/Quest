@@ -106,6 +106,7 @@ export default function LibraryScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={s.filterScroll}
         contentContainerStyle={s.filterRow}
       >
         {STATUS_OPTIONS.map((opt) => (
@@ -228,7 +229,8 @@ const s = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.08)",
   },
 
-  filterRow: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, marginBottom: 8 },
+  filterScroll: { height: 50, marginBottom: 8 },
+  filterRow: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, alignItems: "center" },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,

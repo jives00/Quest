@@ -95,11 +95,15 @@ export async function lookupGameId(opts: {
     }
 
     const res = await fetch(url.toString());
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[ITAD] lookup failed: HTTP ${res.status}`);
+      return null;
+    }
 
     const json = (await res.json()) as ItadLookupResponse;
     return json.game?.id ?? null;
-  } catch {
+  } catch (err) {
+    console.warn('[ITAD] lookup error:', err);
     return null;
   }
 }
@@ -125,11 +129,17 @@ export async function getPriceOverview(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify([itadId]),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[ITAD] overview failed: HTTP ${res.status}`);
+      return null;
+    }
 
     const json = (await res.json()) as ItadOverviewResponse;
     const item = json.prices?.find((i) => i.id === itadId) ?? null;
-    if (!item) return null;
+    if (!item) {
+      console.warn(`[ITAD] overview: itadId ${itadId} not in response`);
+      return null;
+    }
 
     const current: ItadDealEntry | null = item.current
       ? {
@@ -144,7 +154,8 @@ export async function getPriceOverview(
       : null;
 
     return { current, lowest };
-  } catch {
+  } catch (err) {
+    console.warn('[ITAD] overview error:', err);
     return null;
   }
 }

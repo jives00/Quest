@@ -794,11 +794,13 @@ export async function getWishlistPrice(
   gameId: number,
   country = 'US',
 ): Promise<WishlistPrice | null> {
-  if (!isItadEnabled()) return null;
+  if (!isItadEnabled()) {
+    console.warn('[ITAD] disabled — ITAD_API_KEY not set');
+    return null;
+  }
 
   const pool = getPool();
 
-  // Look up steam appid and title
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT g.title,
             (SELECT e.external_id FROM external_game_ids e
@@ -806,13 +808,22 @@ export async function getWishlistPrice(
        FROM games g WHERE g.id = ?`,
     [gameId],
   );
-  if (!rows.length) return null;
+  if (!rows.length) {
+    console.warn(`[ITAD] game ${gameId} not found in DB`);
+    return null;
+  }
 
   const { title, steam_app_id: appid } = rows[0] as { title: string; steam_app_id: string | null };
 
   const itadId = await lookupGameId({ appid: appid ?? undefined, title });
-  if (!itadId) return null;
+  if (!itadId) {
+    console.warn(`[ITAD] no ITAD id for game ${gameId} ("${title}", appid=${appid ?? 'none'})`);
+    return null;
+  }
 
   const overview = await getPriceOverview(itadId, country);
+  if (!overview) {
+    console.warn(`[ITAD] no price overview for game ${gameId} ("${title}", itadId=${itadId})`);
+  }
   return overview;
 }

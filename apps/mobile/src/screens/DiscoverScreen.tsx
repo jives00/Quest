@@ -95,6 +95,7 @@ export default function DiscoverScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={s.tabScroll}
         contentContainerStyle={s.tabRow}
       >
         {CATEGORIES.map((cat) => (
@@ -118,6 +119,7 @@ export default function DiscoverScreen() {
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
+          style={s.tabScroll}
           contentContainerStyle={s.tabRow}
         >
           {genres.map((g) => (
@@ -208,7 +210,8 @@ const s = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "900", color: "#f0f0f6" },
 
-  tabRow: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, paddingBottom: 10 },
+  tabScroll: { height: 50, marginBottom: 4 },
+  tabRow: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, alignItems: "center" },
   tab: {
     paddingHorizontal: 14,
     paddingVertical: 8,

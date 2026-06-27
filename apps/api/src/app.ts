@@ -30,7 +30,7 @@ import { appVersionRoutes } from './routes/app-version.routes';
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
-    logger: { transport: { target: 'pino-pretty', options: { colorize: true, translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } },
+    logger: { level: 'warn', transport: { target: 'pino-pretty', options: { colorize: true, translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } },
     trustProxy: true,
   });
 

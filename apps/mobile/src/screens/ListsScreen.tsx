@@ -119,7 +119,7 @@ export default function ListsScreen() {
       </View>
 
       <FlatList
-        data={lists}
+        data={lists.filter((l) => l.kind !== "platform")}
         keyExtractor={(l) => String(l.id)}
         contentContainerStyle={s.list}
         refreshControl={
@@ -148,9 +148,6 @@ export default function ListsScreen() {
             </View>
             <View style={s.listInfo}>
               <Text style={s.listName}>{item.name}</Text>
-              {item.systemKey && (
-                <Text style={s.listMeta}>{item.systemKey}</Text>
-              )}
             </View>
             <Text style={s.listCount}>{item.itemCount}</Text>
             <Ionicons name="chevron-forward" size={16} color="#888" />
@@ -240,7 +237,6 @@ const s = StyleSheet.create({
   },
   listInfo: { flex: 1 },
   listName: { color: "#f0f0f6", fontSize: 14, fontWeight: "600" },
-  listMeta: { color: "#888", fontSize: 12, marginTop: 2 },
   listCount: { color: "#888", fontSize: 14, fontWeight: "700", marginRight: 4 },
   empty: { color: "#888", textAlign: "center", marginTop: 40, fontSize: 14 },
 
