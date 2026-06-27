@@ -8,7 +8,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
-  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -21,16 +20,12 @@ import { formatMinutes, formatRelativeDate } from "../lib/format";
 import type { SharedDetailParamList } from "../navigation/types";
 import type {
   DashboardResponse,
-  DashboardSummary,
-  DashboardHero,
   DailyPlayStat,
   LibraryGame,
-  UpcomingGame,
 } from "../lib/api";
 
 type Nav = NativeStackNavigationProp<SharedDetailParamList>;
 
-const { width: SCREEN_W } = Dimensions.get("window");
 const COVER_W = 90;
 const COVER_H = 120;
 
@@ -39,12 +34,9 @@ export default function DashboardScreen() {
   const nav = useNavigation<Nav>();
 
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [hero, setHero] = useState<DashboardHero | null>(null);
   const [dailyStats, setDailyStats] = useState<DailyPlayStat[]>([]);
   const [playing, setPlaying] = useState<LibraryGame[]>([]);
   const [backlog, setBacklog] = useState<LibraryGame[]>([]);
-  const [upcoming, setUpcoming] = useState<UpcomingGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -52,12 +44,9 @@ export default function DashboardScreen() {
     if (!token) return;
     await Promise.all([
       api.getDashboard(token).then(setDashboard).catch(() => {}),
-      api.getDashboardSummary(token).then(setSummary).catch(() => {}),
-      api.getDashboardHero(token).then((h) => setHero(h ?? null)).catch(() => {}),
       api.getDashboardDailyStats(token).then(setDailyStats).catch(() => {}),
       api.getDashboardPlaying(token).then(setPlaying).catch(() => {}),
       api.getDashboardBacklog(token).then(setBacklog).catch(() => {}),
-      api.getDashboardUpcoming(token).then(setUpcoming).catch(() => {}),
     ]);
   }, [token]);
 
@@ -102,24 +91,6 @@ export default function DashboardScreen() {
           <Text style={s.wordmark}>QUEST</Text>
         </View>
 
-        {/* Hero */}
-        {hero && (
-          <TouchableOpacity onPress={() => nav.navigate("GameDetail", { gameId: hero.id })}>
-            <View style={s.heroCard}>
-              {imgUrl(hero.heroPath) && (
-                <Image
-                  source={{ uri: imgUrl(hero.heroPath)! }}
-                  style={s.heroImg}
-                  contentFit="cover"
-                />
-              )}
-              <View style={s.heroOverlay}>
-                <Text style={s.heroTitle}>{hero.title}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        )}
-
         {/* Now Playing */}
         {dashboard?.nowPlaying && (
           <Section title="Now Playing">
@@ -150,21 +121,6 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </Section>
         )}
-
-        {/* Summary stats */}
-        {summary && (
-          <Section title="Your Library">
-            <View style={s.statsRow}>
-              <StatCard label="Games" value={String(summary.totalGames)} />
-              <StatCard label="Finished" value={String(summary.finishedCount)} />
-              <StatCard label="Perfect" value={String(summary.perfectCount)} />
-              <StatCard label="Time" value={formatMinutes(summary.lifetimeMin)} />
-            </View>
-          </Section>
-        )}
-
-        {/* Activity chart */}
-        {dailyStats.length > 0 && <ActivityGraph stats={dailyStats} />}
 
         {/* Currently Playing */}
         {playing.length > 0 && (
@@ -204,62 +160,8 @@ export default function DashboardScreen() {
           </Section>
         )}
 
-        {/* Upcoming releases */}
-        {upcoming.length > 0 && (
-          <Section title="Upcoming Releases">
-            {upcoming.slice(0, 5).map((g) => (
-              <View key={g.id} style={s.upcomingRow}>
-                {imgUrl(g.coverPath) ? (
-                  <Image
-                    source={{ uri: imgUrl(g.coverPath)! }}
-                    style={s.upcomingCover}
-                    contentFit="cover"
-                  />
-                ) : (
-                  <View style={[s.upcomingCover, s.coverFallback]} />
-                )}
-                <View style={s.upcomingInfo}>
-                  <Text style={s.upcomingTitle} numberOfLines={1}>
-                    {g.title}
-                  </Text>
-                  <Text style={s.upcomingDate}>{g.releaseDate}</Text>
-                </View>
-              </View>
-            ))}
-          </Section>
-        )}
-
-        {/* Recent sessions */}
-        {(dashboard?.recentSessions?.length ?? 0) > 0 && (
-          <Section title="Recent Sessions">
-            {dashboard!.recentSessions.slice(0, 5).map((s2) => (
-              <TouchableOpacity
-                key={s2.id}
-                style={s.sessionRow}
-                onPress={() => nav.navigate("GameDetail", { gameId: s2.gameId })}
-              >
-                {imgUrl(s2.coverPath) ? (
-                  <Image
-                    source={{ uri: imgUrl(s2.coverPath)! }}
-                    style={s.sessionCover}
-                    contentFit="cover"
-                  />
-                ) : (
-                  <View style={[s.sessionCover, s.coverFallback]} />
-                )}
-                <View style={s.sessionInfo}>
-                  <Text style={s.sessionTitle} numberOfLines={1}>
-                    {s2.title}
-                  </Text>
-                  <Text style={s.sessionMeta}>
-                    {formatMinutes(s2.durationMin)} ·{" "}
-                    {formatRelativeDate(s2.endedAt)}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </Section>
-        )}
+        {/* Activity chart */}
+        <ActivityGraph stats={dailyStats} />
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -277,15 +179,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         <Text style={s.sectionTitle}>{title}</Text>
       </View>
       {children}
-    </View>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={s.statCard}>
-      <Text style={s.statValue}>{value}</Text>
-      <Text style={s.statLabel}>{label}</Text>
     </View>
   );
 }
@@ -322,7 +215,13 @@ function GameCoverCard({
 }
 
 function ActivityGraph({ stats }: { stats: DailyPlayStat[] }) {
-  const last14 = stats.slice(-14);
+  const statsByDate = new Map(stats.map((d) => [d.date, d.totalMin]));
+  const last14: DailyPlayStat[] = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (13 - i));
+    const date = d.toISOString().slice(0, 10);
+    return { date, totalMin: statsByDate.get(date) ?? 0 };
+  });
   const maxMin = Math.max(...last14.map((d) => d.totalMin), 1);
   const BAR_H = 50;
   const totalMin = last14.reduce((sum, d) => sum + d.totalMin, 0);
@@ -378,24 +277,6 @@ const s = StyleSheet.create({
     letterSpacing: 4,
   },
 
-  heroCard: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
-    overflow: "hidden",
-    height: 180,
-  },
-  heroImg: { width: "100%", height: "100%" },
-  heroOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 12,
-    backgroundColor: "rgba(0,0,0,0.55)",
-  },
-  heroTitle: { color: "#f0f0f6", fontWeight: "800", fontSize: 16 },
-
   nowPlayingRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -419,23 +300,6 @@ const s = StyleSheet.create({
   },
   liveText: { color: "#fff", fontWeight: "800", fontSize: 10, letterSpacing: 1 },
 
-  statsRow: {
-    flexDirection: "row",
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#1e2029",
-    borderRadius: 8,
-    padding: 10,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-  },
-  statValue: { color: "#f0f0f6", fontWeight: "800", fontSize: 16 },
-  statLabel: { color: "#888", fontSize: 10, marginTop: 2 },
-
   section: { paddingTop: 24 },
   sectionHeader: {
     flexDirection: "row",
@@ -452,34 +316,6 @@ const s = StyleSheet.create({
   coverFallback: { backgroundColor: "#323440", justifyContent: "center", alignItems: "center", padding: 6 },
   coverFallbackText: { fontSize: 10, color: "#888", textAlign: "center" },
   coverLabel: { fontSize: 11, color: "#d7d8e2", marginTop: 5, lineHeight: 14 },
-
-  upcomingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.04)",
-  },
-  upcomingCover: { width: 36, height: 48, borderRadius: 4 },
-  upcomingInfo: { flex: 1 },
-  upcomingTitle: { color: "#f0f0f6", fontSize: 13, fontWeight: "600" },
-  upcomingDate: { color: "#888", fontSize: 11, marginTop: 2 },
-
-  sessionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.04)",
-  },
-  sessionCover: { width: 36, height: 48, borderRadius: 4 },
-  sessionInfo: { flex: 1 },
-  sessionTitle: { color: "#f0f0f6", fontSize: 13, fontWeight: "600" },
-  sessionMeta: { color: "#888", fontSize: 11, marginTop: 2 },
 
   graphBox: {
     marginHorizontal: 16,

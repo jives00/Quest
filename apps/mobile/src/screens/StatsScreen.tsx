@@ -17,7 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { api } from "../lib/api";
 import type { Stats } from "../lib/api";
 import { imgUrl } from "../lib/img";
-import { formatMinutes } from "../lib/format";
+import { formatMinutes, formatHours } from "../lib/format";
 import type { SharedDetailParamList } from "../navigation/types";
 
 type Nav = NativeStackNavigationProp<SharedDetailParamList>;
@@ -81,35 +81,28 @@ export default function StatsScreen() {
         />
       }
     >
-      {/* Overview */}
-      <SectionHeader title="Overview" />
+      {/* Overview — 2×2 matching web layout */}
       <View style={s.overviewGrid}>
-        <StatCard label="Tracked" value={formatMinutes(ov.trackedMinutes)} />
-        <StatCard label="Lifetime" value={formatMinutes(ov.lifetimeMinutes)} />
-        <StatCard label="Sessions" value={String(ov.sessionCount)} />
-        <StatCard label="Owned" value={String(ov.gamesOwned)} />
-        <StatCard label="Played" value={String(ov.gamesPlayed)} />
-        <StatCard label="Achievements" value={String(ov.achievementsUnlocked)} />
-        <StatCard label="Finished" value={String(ov.perfectGames)} />
-        <StatCard label="Unmatched" value={String(ov.needsMatch)} />
+        <StatCard
+          label="Lifetime"
+          value={formatHours(ov.lifetimeMinutes)}
+          hint={`${formatHours(ov.trackedMinutes)} tracked`}
+        />
+        <StatCard
+          label="Achievements"
+          value={ov.achievementsUnlocked.toLocaleString()}
+          hint={`${ov.perfectGames} perfect`}
+        />
+        <StatCard
+          label="Backlog"
+          value={((stats.statusCounts["unplayed"] ?? 0) + (stats.statusCounts["playing"] ?? 0)).toLocaleString()}
+          hint="unplayed + playing"
+        />
+        <StatCard
+          label="Completed"
+          value={(stats.statusCounts["completed"] ?? 0).toLocaleString()}
+        />
       </View>
-
-      {/* Status breakdown */}
-      {Object.keys(stats.statusCounts).length > 0 && (
-        <>
-          <SectionHeader title="By Status" />
-          <View style={s.statusGrid}>
-            {Object.entries(stats.statusCounts).map(([status, count]) => (
-              <View key={status} style={s.statusCard}>
-                <Text style={s.statusCount}>{count}</Text>
-                <Text style={s.statusLabel} numberOfLines={1}>
-                  {status}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </>
-      )}
 
       {/* Top played */}
       {stats.topPlayed.length > 0 && (
@@ -250,11 +243,12 @@ function SectionHeader({ title }: { title: string }) {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <View style={s.statCard}>
-      <Text style={s.statValue}>{value}</Text>
-      <Text style={s.statLabel}>{label}</Text>
+      <Text style={s.statLabel} numberOfLines={1}>{label}</Text>
+      <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
+      {hint ? <Text style={s.statHint} numberOfLines={1}>{hint}</Text> : null}
     </View>
   );
 }
@@ -284,38 +278,20 @@ const s = StyleSheet.create({
   overviewGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    paddingHorizontal: 12,
-    gap: 8,
+    paddingHorizontal: 16,
+    gap: 10,
   },
   statCard: {
-    width: "22%",
+    width: "47%",
     backgroundColor: "#1e2029",
-    borderRadius: 8,
-    padding: 10,
-    alignItems: "center",
+    borderRadius: 12,
+    padding: 14,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.06)",
   },
-  statValue: { color: "#f0f0f6", fontWeight: "800", fontSize: 14 },
-  statLabel: { color: "#888", fontSize: 9, marginTop: 2, textAlign: "center" },
-
-  statusGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  statusCard: {
-    backgroundColor: "#1e2029",
-    borderRadius: 8,
-    padding: 10,
-    minWidth: 70,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-  },
-  statusCount: { color: "#f0f0f6", fontWeight: "800", fontSize: 18 },
-  statusLabel: { color: "#888", fontSize: 10, marginTop: 2, textTransform: "capitalize" },
+  statLabel: { color: "#888", fontSize: 11, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+  statValue: { color: "#f0f0f6", fontWeight: "900", fontSize: 26, marginTop: 4 },
+  statHint: { color: "#555", fontSize: 11, marginTop: 3 },
 
   topRow: {
     flexDirection: "row",

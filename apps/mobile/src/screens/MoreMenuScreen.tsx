@@ -13,7 +13,7 @@ const MENU_ITEMS: {
   screen: keyof MoreStackParamList;
 }[] = [
   { label: "Search", icon: "search-outline", screen: "Search" },
-  { label: "Wishlist", icon: "heart-outline", screen: "Wishlist" },
+  { label: "Discover", icon: "compass-outline", screen: "Discover" },
   { label: "Stats", icon: "bar-chart-outline", screen: "Stats" },
   { label: "Settings", icon: "settings-outline", screen: "Settings" },
 ];

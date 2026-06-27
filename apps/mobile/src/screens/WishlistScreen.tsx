@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,6 +16,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { api } from "../lib/api";
 import type { LibraryGame, WishlistPrice, QuestListDetail } from "../lib/api";
 import { imgUrl } from "../lib/img";
+import { formatDate } from "../lib/format";
 import type { SharedDetailParamList } from "../navigation/types";
 
 type Nav = NativeStackNavigationProp<SharedDetailParamList>;
@@ -81,7 +83,7 @@ export default function WishlistScreen() {
   }
 
   return (
-    <View style={s.root}>
+    <SafeAreaView style={s.root} edges={["top"]}>
       <FlatList
         data={entries}
         keyExtractor={(e) => String(e.game.id)}
@@ -123,24 +125,30 @@ export default function WishlistScreen() {
               <Text style={s.name} numberOfLines={2}>
                 {item.game.title}
               </Text>
+              {item.game.firstReleaseDate && (
+                <Text style={s.releaseDate}>
+                  {formatDate(item.game.firstReleaseDate)}
+                </Text>
+              )}
               {item.price?.current ? (
                 <Text style={s.price}>
-                  ${(item.price.current.price / 100).toFixed(2)} ·{" "}
-                  {item.price.current.shop}
+                  ${item.price.current.price.toFixed(2)} · {item.price.current.shop}
                 </Text>
+              ) : item.price ? (
+                <Text style={s.priceNA}>Not currently listed</Text>
               ) : (
-                <Text style={s.priceNA}>No price found</Text>
+                <Text style={s.priceNA}>No price data</Text>
               )}
-              {item.price?.lowest && item.price.current && (
+              {item.price?.lowest && (
                 <Text style={s.priceLowest}>
-                  Lowest: ${(item.price.lowest.price / 100).toFixed(2)}
+                  Historical low: ${item.price.lowest.price.toFixed(2)}
                 </Text>
               )}
             </View>
           </TouchableOpacity>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -170,7 +178,8 @@ const s = StyleSheet.create({
   coverFallback: { backgroundColor: "#323440" },
   info: { flex: 1 },
   name: { color: "#f0f0f6", fontSize: 14, fontWeight: "600" },
+  releaseDate: { color: "#888", fontSize: 11, marginTop: 2 },
   price: { color: "#4caf50", fontSize: 12, marginTop: 3 },
-  priceNA: { color: "#666", fontSize: 12, marginTop: 3 },
+  priceNA: { color: "#555", fontSize: 12, marginTop: 3 },
   priceLowest: { color: "#888", fontSize: 11, marginTop: 1 },
 });

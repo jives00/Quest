@@ -208,17 +208,17 @@ const s = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "900", color: "#f0f0f6" },
 
-  tabRow: { paddingHorizontal: 16, gap: 8, paddingBottom: 10 },
+  tabRow: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, paddingBottom: 10 },
   tab: {
     paddingHorizontal: 14,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: "#1e2029",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
   tabActive: { backgroundColor: "#6c47ff", borderColor: "#6c47ff" },
-  tabText: { fontSize: 12, color: "#888" },
+  tabText: { fontSize: 13, color: "#888" },
   tabTextActive: { color: "#fff", fontWeight: "700" },
 
   center: { flex: 1, justifyContent: "center", alignItems: "center" },

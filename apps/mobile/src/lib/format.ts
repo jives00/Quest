@@ -12,6 +12,19 @@ export function formatMinutes(totalMin: number): string {
 }
 
 /**
+ * Compact hours formatter — shows minutes below 1h, one decimal below 100h,
+ * rounded integer above. Matches the web's fmtHours behaviour.
+ * e.g. 45 -> "45m", 90 -> "1.5h", 6000 -> "100h", 74100 -> "1,235h"
+ */
+export function formatHours(totalMin: number): string {
+  if (!totalMin) return "0h";
+  const h = totalMin / 60;
+  if (h < 1) return `${totalMin}m`;
+  if (h < 100) return `${h.toFixed(1)}h`;
+  return `${Math.round(h).toLocaleString()}h`;
+}
+
+/**
  * Format a date string (ISO or YYYY-MM-DD) as a short locale string.
  * e.g. "2024-03-15" -> "Mar 15, 2024"
  */

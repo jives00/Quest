@@ -10,6 +10,7 @@ import type {
   DashboardStackParamList,
   LibraryStackParamList,
   DiscoverStackParamList,
+  WishlistStackParamList,
   ListsStackParamList,
   MoreStackParamList,
 } from "./types";
@@ -32,6 +33,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
 const LibraryStack = createNativeStackNavigator<LibraryStackParamList>();
 const DiscoverStack = createNativeStackNavigator<DiscoverStackParamList>();
+const WishlistStack = createNativeStackNavigator<WishlistStackParamList>();
 const ListsStack = createNativeStackNavigator<ListsStackParamList>();
 const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 
@@ -103,6 +105,18 @@ function DiscoverNavigator() {
   );
 }
 
+function WishlistNavigator() {
+  return (
+    <WishlistStack.Navigator
+      screenOptions={{ headerShown: false, ...DETAIL_SCREEN_OPTIONS, contentStyle: { backgroundColor: NAV_BG } }}
+    >
+      <WishlistStack.Screen name="WishlistHome" component={WishlistScreen} />
+      <WishlistStack.Screen name="GameDetail" component={GameDetailScreen} options={{ headerShown: true, title: "" }} />
+      <WishlistStack.Screen name="ListDetail" component={ListDetailScreen} options={{ headerShown: true, title: "" }} />
+    </WishlistStack.Navigator>
+  );
+}
+
 function ListsNavigator() {
   return (
     <ListsStack.Navigator
@@ -127,7 +141,7 @@ function MoreNavigator({ navRef }: { navRef: React.MutableRefObject<any> }) {
     >
       <MoreStack.Screen name="MoreMenu" component={MoreMenuScreen} options={{ title: "More" }} />
       <MoreStack.Screen name="Search" component={SearchScreen} options={{ title: "Search" }} />
-      <MoreStack.Screen name="Wishlist" component={WishlistScreen} options={{ title: "Wishlist" }} />
+      <MoreStack.Screen name="Discover" component={DiscoverScreen} options={{ title: "Discover" }} />
       <MoreStack.Screen name="Stats" component={StatsScreen} options={{ title: "Stats" }} />
       <MoreStack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
       <MoreStack.Screen name="GameDetail" component={GameDetailScreen} options={{ title: "" }} />
@@ -194,17 +208,17 @@ function MainTabs() {
         })}
       />
       <Tab.Screen
-        name="Discover"
-        component={DiscoverNavigator}
+        name="Wishlist"
+        component={WishlistNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass-outline" color={color} size={size} />
+            <Ionicons name="bookmark-outline" color={color} size={size} />
           ),
         }}
         listeners={({ navigation }) => ({
           tabPress: () => {
             if (navigation.isFocused()) {
-              navigation.navigate("Discover", { screen: "DiscoverHome" } as never);
+              navigation.navigate("Wishlist", { screen: "WishlistHome" } as never);
             }
           },
         })}

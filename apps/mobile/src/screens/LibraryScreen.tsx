@@ -102,7 +102,7 @@ export default function LibraryScreen() {
         />
       </View>
 
-      {/* Status filter */}
+      {/* Status + Platform filters */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -110,40 +110,23 @@ export default function LibraryScreen() {
       >
         {STATUS_OPTIONS.map((opt) => (
           <TouchableOpacity
-            key={opt.value}
+            key={`s-${opt.value}`}
             style={[s.filterChip, status === opt.value && s.filterChipActive]}
             onPress={() => setStatus(opt.value)}
           >
-            <Text
-              style={[
-                s.filterChipText,
-                status === opt.value && s.filterChipTextActive,
-              ]}
-            >
+            <Text style={[s.filterChipText, status === opt.value && s.filterChipTextActive]}>
               {opt.label}
             </Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
-
-      {/* Platform filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[s.filterRow, { marginTop: 0 }]}
-      >
-        {PLATFORM_OPTIONS.map((opt) => (
+        <View style={s.filterDivider} />
+        {PLATFORM_OPTIONS.filter((o) => o.value !== "").map((opt) => (
           <TouchableOpacity
-            key={opt.value}
+            key={`p-${opt.value}`}
             style={[s.filterChip, platform === opt.value && s.filterChipActive]}
-            onPress={() => setPlatform(opt.value)}
+            onPress={() => setPlatform(platform === opt.value ? "" : opt.value)}
           >
-            <Text
-              style={[
-                s.filterChipText,
-                platform === opt.value && s.filterChipTextActive,
-              ]}
-            >
+            <Text style={[s.filterChipText, platform === opt.value && s.filterChipTextActive]}>
               {opt.label}
             </Text>
           </TouchableOpacity>
@@ -245,10 +228,10 @@ const s = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.08)",
   },
 
-  filterRow: { paddingHorizontal: 16, gap: 8, marginBottom: 8 },
+  filterRow: { paddingHorizontal: 16, paddingVertical: 4, gap: 8, marginBottom: 8 },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: "#1e2029",
     borderWidth: 1,
@@ -258,8 +241,14 @@ const s = StyleSheet.create({
     backgroundColor: "#6c47ff",
     borderColor: "#6c47ff",
   },
-  filterChipText: { fontSize: 12, color: "#888" },
+  filterChipText: { fontSize: 13, color: "#888" },
   filterChipTextActive: { color: "#fff", fontWeight: "700" },
+  filterDivider: {
+    width: 1,
+    marginHorizontal: 4,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    alignSelf: "stretch",
+  },
 
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   empty: {
