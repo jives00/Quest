@@ -1,7 +1,8 @@
 import { getPool } from '../db';
 import { resolveExternalId } from './matching.service';
 import { recordOwnership } from './library.service';
-import { IGDB_PLATFORM_HINT, PLATFORM_LABELS, type Platform } from '../platforms';
+import { IGDB_PLATFORM_HINT, PLATFORM_LABELS, PLATFORM_EXTERNAL_SOURCE, type Platform } from '../platforms';
+import type { ExternalSource } from './matching.service';
 
 // One-shot library imports for the cloud-API-less stores (Epic / GOG / Meta Quest).
 // The user obtains an owned-games list from the platform (see Settings docs), pastes
@@ -66,7 +67,7 @@ export async function importLibrary(
     const acquiredAt = item.acquiredAt ? new Date(item.acquiredAt) : null;
 
     const resolved = await resolveExternalId({
-      source,
+      source: PLATFORM_EXTERNAL_SOURCE[source] as Exclude<ExternalSource, 'igdb'>,
       externalId,
       title,
       platformId: IGDB_PLATFORM_HINT[source],
