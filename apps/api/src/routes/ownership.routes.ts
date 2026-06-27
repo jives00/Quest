@@ -25,6 +25,11 @@ export async function ownershipRoutes(app: FastifyInstance) {
       if (!platform || !(VALID_PLATFORMS as readonly string[]).includes(platform)) {
         return reply.status(400).send({ error: `platform must be one of: ${VALID_PLATFORMS.join(', ')}` });
       }
+      // Clear any suppression so the platform is no longer blocked from syncing
+      await getPool().query(
+        `DELETE FROM ownership_suppressions WHERE user_id = ? AND game_id = ? AND platform = ?`,
+        [userId(request), gameId, platform],
+      );
       await recordOwnership(userId(request), gameId!, platform as Platform);
       return reply.status(201).send({ gameId, platform });
     },
@@ -48,6 +53,11 @@ export async function ownershipRoutes(app: FastifyInstance) {
         [userId(request), gameId, platform],
       );
       if (res.affectedRows === 0) return reply.status(404).send({ error: 'Ownership not found' });
+      // Suppress this platform so pollers don't re-add it automatically
+      await getPool().query(
+        `INSERT IGNORE INTO ownership_suppressions (user_id, game_id, platform) VALUES (?, ?, ?)`,
+        [userId(request), gameId, platform],
+      );
       return { deleted: true };
     },
   );

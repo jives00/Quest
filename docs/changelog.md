@@ -2,6 +2,10 @@
 
 ## June 27, 2026
 
+### Backend
+- Ownership: removed platforms no longer re-added by pollers — `DELETE /ownership` now writes a suppression row; `POST /ownership` clears it `d1d4f11`
+- Migration 030: `ownership_suppressions` table `d1d4f11`
+
 ### Frontend – Web
 - Navbar: replaced joystick material icon with Quest app icon image `e083006`
 - Favicon: added Quest icon as web favicon via Next.js `app/icon.png` `e083006`

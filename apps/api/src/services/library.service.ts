@@ -81,6 +81,13 @@ export async function recordOwnership(
   acquiredAt?: Date | null,
 ): Promise<void> {
   const pool = getPool();
+
+  const [suppressed] = await pool.query<RowDataPacket[]>(
+    `SELECT 1 FROM ownership_suppressions WHERE user_id = ? AND game_id = ? AND platform = ? LIMIT 1`,
+    [userId, gameId, platform],
+  );
+  if (suppressed.length) return;
+
   await pool.query(
     `INSERT INTO ownership (user_id, game_id, platform, acquired_at)
      VALUES (?, ?, ?, ?)
