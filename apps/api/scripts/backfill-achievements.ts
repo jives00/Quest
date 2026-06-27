@@ -2,9 +2,8 @@
  * Backfill Steam achievements for all owned games (not just recently played).
  * Run: pnpm --filter @quest/api backfill-achievements
  *
- * Flags:
- *   --skip-steamdb   Skip DLC-grouping lookups (much faster; ~2 min vs ~50 min).
- *                    Run without the flag afterward to populate DLC groups.
+ * DLC grouping is handled by a separate script (TrueSteamAchievements):
+ *   pnpm --filter @quest/api backfill-dlc-groups
  *
  * Iterates every Steam appid in external_game_ids, calls GetPlayerAchievements
  * + GetGameAchievements/v1 for each, and upserts into achievements / user_achievements.
@@ -22,7 +21,6 @@ import {
   getPlayerAchievements,
   getGameAchievementsV1,
   getSchemaForGame,
-  getSteamDbAchievementGroups,
 } from '../src/services/steam.client';
 
 const dbConfig = {
@@ -34,14 +32,11 @@ const dbConfig = {
   timezone: 'Z',
 };
 
-const skipSteamDb = process.argv.includes('--skip-steamdb');
 const onlyAppId = (() => {
   const flag = process.argv.find(a => a.startsWith('--app-id='));
   return flag ? flag.split('=')[1] : null;
 })();
 const DELAY_MS = 500;
-// Kept high to avoid Cloudflare rate-banning. ~10s × 300 games ≈ 50 min.
-const STEAMDB_DELAY_MS = 10_000;
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 async function main() {
@@ -134,25 +129,8 @@ async function main() {
           }
         }
 
-        // DLC grouping — separate delay to avoid Cloudflare banning
-        let dlcCount = 0;
-        if (!skipSteamDb) {
-          await sleep(STEAMDB_DELAY_MS);
-          const dlcGroups = await getSteamDbAchievementGroups(appIdNum);
-          for (const group of dlcGroups) {
-            if (!group.dlcAppId || group.achievementApiNames.length === 0) continue;
-            dlcCount++;
-            const placeholders = group.achievementApiNames.map(() => '?').join(', ');
-            await conn.query(
-              `UPDATE achievements SET dlc_app_id = ?, dlc_app_name = ?
-                WHERE game_id = ? AND api_name IN (${placeholders})`,
-              [group.dlcAppId, group.dlcAppName, gameId, ...group.achievementApiNames],
-            );
-          }
-        }
-
         const earned = player.filter(a => a.achieved).length;
-        process.stdout.write(`${prefix} — ${earned}/${player.length} earned${dlcCount > 0 ? ` (${dlcCount} DLC groups)` : ''}\n`);
+        process.stdout.write(`${prefix} — ${earned}/${player.length} earned\n`);
         synced++;
       }
     } catch (err) {
@@ -163,8 +141,8 @@ async function main() {
     if (i < rows.length - 1) await sleep(DELAY_MS);
   }
 
-  const steamDbNote = skipSteamDb ? '  (SteamDB DLC grouping skipped — re-run without --skip-steamdb to populate)' : '';
-  console.log(`\n✓ Done. Synced: ${synced}  Skipped (no achievements): ${skipped}  Failed: ${failed}${steamDbNote}`);
+  console.log(`\n✓ Done. Synced: ${synced}  Skipped (no achievements): ${skipped}  Failed: ${failed}`);
+  console.log('  DLC grouping is handled separately: pnpm --filter @quest/api backfill-dlc-groups');
   await conn.end();
 }
 

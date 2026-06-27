@@ -21,6 +21,7 @@
 
 ### Backend
 - Achievements: group by DLC via TrueSteamAchievements (server-side scrape, `tsa.client`) — replaces the Cloudflare-gated SteamDB endpoint; matches achievements by display name and sets `dlc_app_name` on enrich; uses `node:https` since undici/fetch is 403'd `2e9f25d`
+- Tooling: add `backfill-dlc-groups` script (library-wide DLC grouping via TrueSteamAchievements); drop dead SteamDB code from `backfill-achievements` `58be414`
 - Ownership: removed platforms no longer re-added by pollers — `DELETE /ownership` now writes a suppression row; `POST /ownership` clears it `d1d4f11`
 - Migration 030: `ownership_suppressions` table `d1d4f11`
 - VR detection: add `"Oculus VR"` (IGDB platform 162), `"Meta Quest"`, and `"Meta Quest Pro"` to VR platform name set — Meta Quest games were not being flagged `32b9073`

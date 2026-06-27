@@ -12,6 +12,7 @@
     "import-wishlist": "tsx scripts/import-wishlist.ts",
     "dedup-provisional": "tsx scripts/dedup-provisional.ts",
     "backfill-achievements": "tsx scripts/backfill-achievements.ts",
+    "backfill-dlc-groups": "tsx scripts/backfill-dlc-groups.ts",
     "backfill-hltb-playtime": "tsx scripts/backfill-hltb-playtime.ts",
     "completions-match": "tsx scripts/completions-match.ts",
     "completions-import": "tsx scripts/completions-import.ts",
