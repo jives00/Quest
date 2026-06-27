@@ -2,6 +2,13 @@
 
 ## June 27, 2026
 
+### Frontend – Web
+- Navbar: replaced joystick material icon with Quest app icon image `e083006`
+- Favicon: added Quest icon as web favicon via Next.js `app/icon.png` `e083006`
+
+### Frontend – Mobile
+- App icon and adaptive icon replaced with Quest icon `e083006`
+
 ### Backend
 - API: reduce Fastify logger to `warn` level — silences per-request INFO noise `fbad340`
 - API: add diagnostic logging to ITAD price path (disabled key, missing steamAppId, lookup failures, overview failures) `fbad340`

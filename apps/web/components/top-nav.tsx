@@ -136,7 +136,7 @@ export function TopNav() {
         {/* Left: Logo + Search Bar */}
         <div className="flex items-center gap-6 flex-1 min-w-0">
           <Link href="/" className="flex items-center gap-2 whitespace-nowrap">
-            <span className="material-symbols-outlined text-accent text-[28px]">joystick</span>
+            <Image src="/quest/quest-icon.png" alt="Quest" width={32} height={32} className="rounded-lg" />
             <span className="text-2xl font-black italic tracking-tighter text-on-surface uppercase">QUEST</span>
           </Link>
           <div className="flex-1 min-w-0 relative" ref={searchContainerRef}>
