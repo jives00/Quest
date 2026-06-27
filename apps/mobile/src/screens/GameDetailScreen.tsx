@@ -15,7 +15,7 @@ import { useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../lib/api";
-import type { GameDetail, GameStatus, Platform } from "../lib/api";
+import type { GameDetail, GameStatus, Platform, Achievement } from "../lib/api";
 import { imgUrl } from "../lib/img";
 import { formatMinutes, formatDate } from "../lib/format";
 import type { SharedDetailParamList } from "../navigation/types";
@@ -50,6 +50,16 @@ export default function GameDetailScreen() {
   const [togglingHidden, setTogglingHidden] = useState(false);
   const [togglingVr, setTogglingVr] = useState(false);
   const [togglingWishlist, setTogglingWishlist] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+
+  const toggleGroup = useCallback((label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }, []);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -393,6 +403,46 @@ export default function GameDetailScreen() {
               (game.achievementEarned / game.achievementTotal) * 100
             )}%)
           </Text>
+
+          {(() => {
+            const groups = buildAchievementGroups(game.achievements);
+            if (groups.length <= 1) {
+              return (
+                <View style={s.achList}>
+                  {(groups[0]?.achievements ?? []).map((a) => (
+                    <AchievementRow key={a.apiName} a={a} />
+                  ))}
+                </View>
+              );
+            }
+            return groups.map((group) => {
+              const collapsed = collapsedGroups.has(group.label);
+              const earned = group.achievements.filter((a) => a.unlockedAt).length;
+              return (
+                <View key={group.label} style={s.achGroup}>
+                  <TouchableOpacity
+                    style={s.achGroupHeader}
+                    onPress={() => toggleGroup(group.label)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={s.achGroupLabel}>
+                      {collapsed ? "▸" : "▾"}  {group.label}
+                    </Text>
+                    <Text style={s.achGroupCount}>
+                      {earned}/{group.achievements.length}
+                    </Text>
+                  </TouchableOpacity>
+                  {!collapsed && (
+                    <View style={s.achList}>
+                      {group.achievements.map((a) => (
+                        <AchievementRow key={a.apiName} a={a} />
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            });
+          })()}
         </View>
       )}
 
@@ -457,6 +507,59 @@ function SectionHeader({ title }: { title: string }) {
     <View style={s.sectionHeaderWrap}>
       <View style={s.sectionAccent} />
       <Text style={s.sectionTitle}>{title}</Text>
+    </View>
+  );
+}
+
+/** Group achievements by DLC name (mirrors the web game detail page). */
+function buildAchievementGroups(
+  achievements: Achievement[],
+): { label: string; achievements: Achievement[] }[] {
+  const map = new Map<string, Achievement[]>();
+  for (const a of achievements) {
+    const key = a.dlcAppName != null && a.dlcAppName !== "" ? a.dlcAppName : "__base__";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(a);
+  }
+  const base = map.get("__base__") ?? [];
+  const dlcs = [...map.entries()]
+    .filter(([k]) => k !== "__base__")
+    .sort(([, a], [, b]) => (a[0].dlcAppName ?? "").localeCompare(b[0].dlcAppName ?? ""));
+  return [
+    ...(base.length > 0
+      ? [{ label: dlcs.length > 0 ? "Base Game" : "Achievements", achievements: base }]
+      : []),
+    ...dlcs.map(([, achs]) => ({ label: achs[0].dlcAppName ?? "DLC", achievements: achs })),
+  ];
+}
+
+function AchievementRow({ a }: { a: Achievement }) {
+  const unlocked = !!a.unlockedAt;
+  const hiddenLocked = a.isHidden && !unlocked;
+  return (
+    <View style={s.achRow}>
+      <Image
+        source={a.icon ? { uri: a.icon } : undefined}
+        style={[s.achIcon, !unlocked && s.achIconLocked]}
+        contentFit="cover"
+      />
+      <View style={s.achInfo}>
+        <Text style={[s.achName, !unlocked && s.achNameLocked]} numberOfLines={1}>
+          {hiddenLocked ? "Hidden achievement" : a.name}
+        </Text>
+        {!hiddenLocked && !!a.description && (
+          <Text style={s.achDesc} numberOfLines={2}>
+            {a.description}
+          </Text>
+        )}
+      </View>
+      <View style={s.achMeta}>
+        {unlocked ? (
+          <Text style={s.achCheck}>✓</Text>
+        ) : a.globalPct != null ? (
+          <Text style={s.achPct}>{a.globalPct.toFixed(1)}%</Text>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -602,6 +705,33 @@ const s = StyleSheet.create({
     borderRadius: 4,
   },
   achievementText: { color: "#888", fontSize: 12 },
+
+  achList: { marginTop: 12, gap: 10 },
+  achGroup: { marginTop: 14 },
+  achGroupHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  achGroupLabel: {
+    color: "#888",
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  achGroupCount: { color: "#666", fontSize: 11 },
+  achRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  achIcon: { width: 38, height: 38, borderRadius: 6, backgroundColor: "#323440" },
+  achIconLocked: { opacity: 0.35 },
+  achInfo: { flex: 1 },
+  achName: { color: "#f0f0f6", fontSize: 13, fontWeight: "700" },
+  achNameLocked: { color: "#888", fontWeight: "600" },
+  achDesc: { color: "#888", fontSize: 11, marginTop: 1, lineHeight: 15 },
+  achMeta: { minWidth: 38, alignItems: "flex-end" },
+  achCheck: { color: "#6c47ff", fontSize: 16, fontWeight: "800" },
+  achPct: { color: "#666", fontSize: 10 },
 
   sessionRow: {
     flexDirection: "row",

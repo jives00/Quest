@@ -10,6 +10,7 @@
 - Game detail: achievements now group into per-DLC sections (Base Game + expansion/DLC groups) `2e9f25d`
 
 ### Frontend – Mobile
+- Game detail: achievements now grouped by DLC into collapsible Base Game + DLC sections (per-group earned/total), each row showing icon, description, and unlock state / rarity % — matches web `a8e5d6b`
 - App icon and adaptive icon replaced with Quest icon `e083006`
 - Dashboard: removed hero image, "Your Library" stats, and Recent Sessions; reordered to Currently Playing → Backlog → Last 14 Days; activity graph now always shows all 14 days (fills blanks with zero bars) `0ed59de`
 - Library: merged Status and Platform filter rows into a single scrollable chip row with a divider; fixed chip text clipping on Android (added paddingVertical to contentContainerStyle) `0ed59de`; increased ScrollView height 50→56 and dropped paddingVertical so bottom borders aren't clipped `0b8a89f`
