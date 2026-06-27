@@ -794,7 +794,6 @@ export async function getWishlistPrice(
   gameId: number,
   country = 'US',
 ): Promise<WishlistPrice | null> {
-  console.log(`[ITAD] getWishlistPrice called for game ${gameId}, enabled=${isItadEnabled()}`);
   if (!isItadEnabled()) {
     console.warn('[ITAD] disabled — ITAD_API_KEY not set');
     return null;

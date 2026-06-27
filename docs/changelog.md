@@ -5,7 +5,7 @@
 ### Backend
 - API: reduce Fastify logger to `warn` level — silences per-request INFO noise `fbad340`
 - API: add diagnostic logging to ITAD price path (disabled key, missing steamAppId, lookup failures, overview failures) `fbad340`
-- API: add entry-level log to `getWishlistPrice` to confirm whether function is called on NAS `0b8a89f`
+- API: add entry-level log to `getWishlistPrice` to confirm whether function is called on NAS `0b8a89f`; removed once resolved `2c45b83`
 - docker-compose: add `ITAD_API_KEY` and `OPENXBL_API_KEY` to container env block — these were in `.env` but never passed through, causing pricing to silently fail on NAS `fbad340`
 
 ### Frontend – Mobile
