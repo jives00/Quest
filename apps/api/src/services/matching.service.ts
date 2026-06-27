@@ -111,8 +111,8 @@ function bestMatch<T extends { name: string }>(
 
 const VR_PLATFORM_NAMES = new Set([
   'SteamVR', 'PlayStation VR', 'PlayStation VR2',
-  'Oculus Quest', 'Oculus Rift', 'Oculus Go',
-  'Meta Quest 2', 'Meta Quest 3',
+  'Oculus VR', 'Oculus Quest', 'Oculus Rift', 'Oculus Go',
+  'Meta Quest', 'Meta Quest 2', 'Meta Quest 3', 'Meta Quest Pro',
   'HTC Vive', 'Windows Mixed Reality', 'Valve Index',
   'Gear VR', 'Google Cardboard', 'Daydream', 'Pico',
 ]);
