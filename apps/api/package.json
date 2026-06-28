@@ -16,6 +16,7 @@
     "backfill-hltb-playtime": "tsx scripts/backfill-hltb-playtime.ts",
     "completions-match": "tsx scripts/completions-match.ts",
     "completions-import": "tsx scripts/completions-import.ts",
+    "backfill-media": "tsx scripts/backfill-media.ts",
     "seed-dashboard": "tsx scripts/seed-dashboard.ts",
     "unseed-dashboard": "tsx scripts/unseed-dashboard.ts"
   },

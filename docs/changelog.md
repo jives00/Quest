@@ -24,9 +24,13 @@
 - Stats: activity feed game title bumped to text-base `97fbe08`
 - Stats: Ownership by Platform legend replaced with custom 2-column grid; pie tooltip uses shared ChartTooltip style `97fbe08`
 
+### Frontend – Mobile
+- App icon updated: 1024×1024, transparent background with added padding `3ed2486`
+
 ### Backend
 - Custom platforms (`user_platforms`) fully wired: ownership on game detail, library filter, imports dropdown, stats breakdown `ba980ba`
 - New `custom_ownership` routes: POST/DELETE `/api/custom-ownership`; library base query includes games only in `custom_ownership` `ba980ba`
+- Added `backfill-media` script to fill missing YouTube trailer IDs and IGDB screenshot IDs via `enrichGame()` `3ed2486`
 - New `platform-overrides` routes: GET/PUT/DELETE `/api/platform-overrides/:platform` for per-user built-in platform name+icon overrides `ba980ba`
 - Fix: PATCH `/api/user-platforms/:id` null-trim crash when `icon` sent as `null` `ba980ba`
 - Migrations 032–035: `icon` column on `user_platforms`, `user_platform_overrides` table, widen icon to TEXT `ba980ba`
