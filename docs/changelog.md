@@ -9,12 +9,17 @@
 - Game detail: Media section between description and achievements with 16:9 main viewer, looping chevron navigation, and thumbnail strip (trailer + screenshots); clicking a thumbnail swaps the main display `8b5fa77`
 - Edit modal: new Media tab to set/preview YouTube trailer and add/remove IGDB screenshots by URL or image ID `8b5fa77`
 - Discover: removed By Genre tab and all associated genre state/UI `c4fc3e2`
+- Stats: heatmap tooltip replaced with styled card showing spelled-out date and time played `97fbe08`
+- Stats: heatmap date cells and month labels now use local date instead of UTC to fix timezone off-by-one `97fbe08`
+- Stats: activity feed game title bumped to text-base `97fbe08`
+- Stats: Ownership by Platform legend replaced with custom 2-column grid; pie tooltip uses shared ChartTooltip style `97fbe08`
 
 ### Backend
 - Dashboard hero endpoint: uses client-supplied `?seed` for `RAND(seed)` instead of unseeded `RAND()`, making the selection stable within a page load while varying per reload `add56f1`
 - Dashboard summary: `finishedCount` now includes games with `other` status in addition to `completed` `341f24c`
 - Game enrichment: fetch and store YouTube trailer video IDs and IGDB screenshot image IDs from IGDB on each enrich run; `GameMetadataPatch` exposes both for manual editing `8b5fa77`
 - Migration 031: `trailer_video_ids` and `screenshot_image_ids` JSON columns on `games` table `8b5fa77`
+- Stats: heatmap query uses client-supplied timezone offset (`?tz=` minutes) to bucket sessions by local date `97fbe08`
 
 ## June 27, 2026
 

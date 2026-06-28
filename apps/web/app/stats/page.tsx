@@ -204,7 +204,7 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-on-surface truncate">{e.gameTitle}</p>
+              <p className="text-base font-medium text-on-surface truncate">{e.gameTitle}</p>
               <p className="text-sm text-on-surface/40 truncate">{label}</p>
             </div>
             <span className="shrink-0 text-sm text-on-surface/30 tabular-nums">{fmtDate(e.at)}</span>
@@ -233,7 +233,7 @@ function CalendarHeatmap({ heatmap }: { heatmap: { date: string; minutes: number
   while (cursor <= today) {
     const week: { date: string; minutes: number }[] = [];
     for (let d = 0; d < 7; d++) {
-      const iso = cursor.toISOString().slice(0, 10);
+      const iso = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}-${String(cursor.getDate()).padStart(2, "0")}`;
       week.push({ date: iso, minutes: byDate.get(iso) ?? 0 });
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -245,9 +245,10 @@ function CalendarHeatmap({ heatmap }: { heatmap: { date: string; minutes: number
   const monthLabels: { col: number; label: string }[] = [];
   let lastMonth = -1;
   weeks.forEach((week, col) => {
-    const m = new Date(week[0].date).getMonth();
+    const [y, mo, da] = week[0].date.split("-").map(Number);
+    const m = mo - 1;
     if (m !== lastMonth) {
-      monthLabels.push({ col, label: new Date(week[0].date).toLocaleString(undefined, { month: "short" }) });
+      monthLabels.push({ col, label: new Date(y, m, da).toLocaleString(undefined, { month: "short" }) });
       lastMonth = m;
     }
   });
@@ -281,13 +282,22 @@ function CalendarHeatmap({ heatmap }: { heatmap: { date: string; minutes: number
           <div key={col} className="flex-1 flex flex-col gap-0.5">
             {week.map(({ date, minutes }) => {
               const intensity = minutes / maxMin;
+              const [y, mo, da] = date.split("-").map(Number);
+              const label = new Date(y, mo - 1, da).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
               return (
-                <div
-                  key={date}
-                  title={`${date}: ${fmtHours(minutes)}`}
-                  className="w-full aspect-square rounded-sm bg-accent"
-                  style={{ opacity: minutes === 0 ? 0.08 : 0.2 + intensity * 0.8 }}
-                />
+                <div key={date} className="relative group w-full aspect-square">
+                  <div
+                    className="w-full h-full rounded-sm bg-accent"
+                    style={{ opacity: minutes === 0 ? 0.08 : 0.2 + intensity * 0.8 }}
+                  />
+                  <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 hidden group-hover:flex flex-col items-center">
+                    <div className="bg-surface-container-high border border-outline-variant/40 rounded-lg px-2.5 py-1.5 text-center shadow-lg whitespace-nowrap">
+                      <p className="text-xs font-medium text-on-surface">{label}</p>
+                      <p className="text-xs text-on-surface/60">{minutes === 0 ? "No activity" : fmtHours(minutes)}</p>
+                    </div>
+                    <div className="w-2 h-2 bg-surface-container-high border-r border-b border-outline-variant/40 rotate-45 -mt-1" />
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -307,7 +317,7 @@ function Lifetime({ token }: { token: string }) {
   useEffect(() => {
     const ac = new AbortController();
     Promise.all([
-      api.getStats(token, ac.signal),
+      api.getStats(token, new Date().getTimezoneOffset(), ac.signal),
       api.getActivity(token, ac.signal),
     ]).then(([s, a]) => { setStats(s); setActivity(a); })
       .catch((e) => { if (e?.name !== "AbortError") setError(String(e)); });
@@ -381,18 +391,32 @@ function Lifetime({ token }: { token: string }) {
           {platPieData.length > 0 && (
             <div>
               <SectionHeader>Ownership by Platform</SectionHeader>
-              <Card className="p-4">
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie data={platPieData} dataKey="value" nameKey="name" cx="35%" cy="50%" outerRadius={60} innerRadius={30}>
-                      {platPieData.map((_, idx) => (
-                        <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(v) => [`${v} games`, "Owned"]} />
-                    <Legend layout="vertical" align="right" verticalAlign="middle" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                  </PieChart>
-                </ResponsiveContainer>
+              <Card className="p-4 flex items-center gap-4">
+                <div className="shrink-0">
+                  <ResponsiveContainer width={140} height={140}>
+                    <PieChart>
+                      <Pie data={platPieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={60} innerRadius={30}>
+                        {platPieData.map((_, idx) => (
+                          <Cell key={idx} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const { name, value } = payload[0].payload as { name: string; value: number };
+                        return <ChartTooltip active payload={[{ value }]} label={name} suffix=" games" />;
+                      }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 flex-1">
+                  {platPieData.map((entry, idx) => (
+                    <div key={entry.name} className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }} />
+                      <span className="text-sm text-on-surface/80 truncate">{entry.name}</span>
+                      <span className="ml-auto shrink-0 text-sm text-on-surface/50 tabular-nums">{entry.value}</span>
+                    </div>
+                  ))}
+                </div>
               </Card>
             </div>
           )}

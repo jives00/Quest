@@ -686,8 +686,8 @@ export const api = {
     request<void>(`/api/history/${id}`, { method: "DELETE", token }),
 
   // ── Stats ───────────────────────────────────────────────────────────────
-  getStats: (token: string, signal?: AbortSignal) =>
-    request<Stats>("/api/stats", { token, signal }),
+  getStats: (token: string, tzOffset?: number, signal?: AbortSignal) =>
+    request<Stats>(`/api/stats${tzOffset !== undefined ? `?tz=${tzOffset}` : ""}`, { token, signal }),
   getStatsYears: (token: string, signal?: AbortSignal) =>
     request<number[]>("/api/stats/years", { token, signal }),
   getYearStats: (year: number, token: string, signal?: AbortSignal) =>

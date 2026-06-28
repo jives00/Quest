@@ -116,7 +116,7 @@ function genreNames(raw: unknown): string[] {
     .filter((n): n is string => typeof n === 'string' && n.length > 0);
 }
 
-export async function getStats(userId: number): Promise<Stats> {
+export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Stats> {
   const pool = getPool();
 
   // ---- Overview ----------------------------------------------------------
@@ -247,14 +247,16 @@ export async function getStats(userId: number): Promise<Stats> {
   // the past 365 days, so old/future records are naturally ignored. This
   // avoids issues with NAS clock drift making NOW()-based filters exclude
   // valid records. Avoid CONVERT_TZ — returns NULL without timezone tables.
+  // tzOffsetMinutes is JS getTimezoneOffset(): positive = behind UTC (e.g. CDT = 300).
+  // Subtract from UTC to get local time for date bucketing.
   const [heatRows] = await pool.query<RowDataPacket[]>(
-    `SELECT DATE(started_at) AS d, SUM(duration_min) AS m
+    `SELECT DATE(started_at - INTERVAL ? MINUTE) AS d, SUM(duration_min) AS m
        FROM play_sessions
       WHERE user_id = ?
-      GROUP BY DATE(started_at)
+      GROUP BY DATE(started_at - INTERVAL ? MINUTE)
      HAVING d IS NOT NULL
       ORDER BY d`,
-    [userId],
+    [tzOffsetMinutes, userId, tzOffsetMinutes],
   );
   const heatmap: HeatmapDay[] = heatRows.map(r => {
     const raw = r.d;

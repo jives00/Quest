@@ -9,8 +9,9 @@ function userId(request: FastifyRequest): number {
 export async function statsRoutes(app: FastifyInstance) {
   const auth = { preHandler: [authenticate] };
 
-  app.get('/stats', auth, async request => {
-    return getStats(userId(request));
+  app.get<{ Querystring: { tz?: string } }>('/stats', auth, async request => {
+    const tzOffset = request.query.tz !== undefined ? Number(request.query.tz) : 0;
+    return getStats(userId(request), tzOffset);
   });
 
   app.get('/stats/years', auth, async request => {
