@@ -7,6 +7,7 @@
 
 ### Backend
 - Dashboard hero endpoint: uses client-supplied `?seed` for `RAND(seed)` instead of unseeded `RAND()`, making the selection stable within a page load while varying per reload `add56f1`
+- Dashboard summary: `finishedCount` now includes games with `other` status in addition to `completed` `4dbef81`
 
 ## June 27, 2026
 
