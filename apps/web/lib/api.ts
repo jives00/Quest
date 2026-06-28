@@ -539,8 +539,8 @@ export const api = {
     ),
   getDashboardSummary: (token: string, signal?: AbortSignal) =>
     request<DashboardSummary>("/api/dashboard/summary", { token, signal }),
-  getDashboardHero: (token: string, signal?: AbortSignal) =>
-    request<DashboardHero | null>("/api/dashboard/hero", { token, signal }),
+  getDashboardHero: (token: string, seed: number, signal?: AbortSignal) =>
+    request<DashboardHero | null>(`/api/dashboard/hero?seed=${seed}`, { token, signal }),
   getDashboardDailyStats: (token: string, signal?: AbortSignal) =>
     request<DailyPlayStat[]>("/api/dashboard/daily-stats", { token, signal }),
   getDashboardPlaying: (token: string, signal?: AbortSignal) =>

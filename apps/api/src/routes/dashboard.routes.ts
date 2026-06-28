@@ -159,18 +159,19 @@ export async function dashboardRoutes(app: FastifyInstance) {
   });
 
   // GET /dashboard/hero — random game with hero art from the library
-  app.get('/dashboard/hero', auth, async request => {
+  app.get('/dashboard/hero', auth, async (request) => {
     const uid = userId(request);
     const pool = getPool();
+    const seed = Number((request.query as Record<string, string>).seed ?? Math.random() * 1_000_000) % 1_000_000;
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.hero_path AS heroPath, g.cover_path AS coverPath
          FROM ownership o
          JOIN games g ON g.id = o.game_id
         WHERE o.user_id = ? AND g.hero_path IS NOT NULL
-        ORDER BY RAND()
+        ORDER BY RAND(?)
         LIMIT 1`,
-      [uid],
+      [uid, seed],
     );
 
     if (rows.length === 0) return null;

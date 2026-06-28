@@ -1,5 +1,13 @@
 # Changelog
 
+## June 28, 2026
+
+### Frontend – Web
+- Home: fixed hero banner double-image flash caused by React Strict Mode double-invoking the hero fetch; seed is now generated once per page mount and passed to the API so repeated calls return the same game `add56f1`
+
+### Backend
+- Dashboard hero endpoint: uses client-supplied `?seed` for `RAND(seed)` instead of unseeded `RAND()`, making the selection stable within a page load while varying per reload `add56f1`
+
 ## June 27, 2026
 
 ### Frontend – Web

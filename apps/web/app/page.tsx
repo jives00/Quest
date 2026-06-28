@@ -336,6 +336,7 @@ export default function DashboardPage() {
   const [upcomingGames, setUpcomingGames] = useState<UpcomingGame[]>([]);
   const [loading, setLoading] = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heroSeedRef = useRef(Math.floor(Math.random() * 1_000_000));
 
   useEffect(() => {
     if (!isLoading && !token) router.push("/login");
@@ -361,7 +362,7 @@ export default function DashboardPage() {
 
       Promise.allSettled([
         api.getDashboardSummary(token),
-        api.getDashboardHero(token),
+        api.getDashboardHero(token, heroSeedRef.current),
         api.getDashboardDailyStats(token),
         api.getDashboardPlaying(token),
         api.getDashboardBacklog(token),
