@@ -14,6 +14,24 @@ function deriveSortTitle(t: string): string {
   return t.replace(/^(the|a|an)\s+/i, "").trim();
 }
 
+function extractYouTubeId(input: string): string {
+  const s = input.trim();
+  // youtu.be/ID or youtube.com/watch?v=ID or youtube.com/embed/ID
+  const m = s.match(/(?:youtu\.be\/|[?&]v=|\/embed\/)([A-Za-z0-9_-]{11})/);
+  if (m) return m[1];
+  // bare 11-char ID
+  if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  return s;
+}
+
+function extractIgdbImageId(input: string): string {
+  const s = input.trim();
+  // https://images.igdb.com/igdb/image/upload/t_xxx/IMAGE_ID.jpg
+  const m = s.match(/\/([a-zA-Z0-9_]+)\.jpg$/);
+  if (m) return m[1];
+  return s;
+}
+
 export function GameMetadataEditor({
   game,
   token,
@@ -28,7 +46,7 @@ export function GameMetadataEditor({
   onOpenRematch: () => void;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"details" | "artwork">("details");
+  const [tab, setTab] = useState<"details" | "artwork" | "media">("details");
 
   // Action toggle state
   const [vrToggling, setVrToggling] = useState(false);
@@ -75,6 +93,11 @@ export function GameMetadataEditor({
   // Artwork fields
   const [coverPath, setCoverPath] = useState(game.coverPath ?? "");
   const [heroPath, setHeroPath] = useState(game.heroPath ?? "");
+
+  // Media fields
+  const [trailerInput, setTrailerInput] = useState(game.trailerVideoIds[0] ?? "");
+  const [screenshotIds, setScreenshotIds] = useState<string[]>(game.screenshotImageIds);
+  const [screenshotInput, setScreenshotInput] = useState("");
   const [art, setArt] = useState<ArtworkCandidates | null>(null);
   const [artQuery, setArtQuery] = useState(game.title);
   const [artLoading, setArtLoading] = useState(false);
@@ -134,6 +157,8 @@ export function GameMetadataEditor({
           hltbMainHours: hltb.trim() ? Number(hltb) : null,
           coverPath: coverPath.trim() || null,
           heroPath: heroPath.trim() || null,
+          trailerVideoIds: trailerInput.trim() ? [extractYouTubeId(trailerInput.trim())] : [],
+          screenshotImageIds: screenshotIds,
         },
         token
       );
@@ -162,6 +187,7 @@ export function GameMetadataEditor({
       <div className="flex gap-1 mb-5">
         <button className={tabCls(tab === "details")} onClick={() => setTab("details")}>Details</button>
         <button className={tabCls(tab === "artwork")} onClick={() => setTab("artwork")}>Artwork</button>
+        <button className={tabCls(tab === "media")} onClick={() => setTab("media")}>Media</button>
       </div>
 
       {tab === "details" && (
@@ -328,6 +354,96 @@ export function GameMetadataEditor({
             {art && art.heroes.length === 0 && !artLoading && (
               <p className="text-xs text-on-surface/40 mt-1">No hero art found — paste a URL above or try a different search.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {tab === "media" && (
+        <div className="flex flex-col gap-8">
+          {/* Trailer */}
+          <div>
+            <label className={labelCls}>YouTube trailer</label>
+            <p className="text-xs text-on-surface/40 mb-2">Paste a YouTube URL or video ID (e.g. youtu.be/abc123 or watch?v=abc123)</p>
+            <input
+              value={trailerInput}
+              onChange={(e) => setTrailerInput(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=…"
+              className={inputCls}
+            />
+            {trailerInput.trim() && (
+              <div className="relative w-full rounded-xl overflow-hidden mt-3" style={{ aspectRatio: "16/9" }}>
+                <iframe
+                  key={extractYouTubeId(trailerInput.trim())}
+                  src={`https://www.youtube.com/embed/${extractYouTubeId(trailerInput.trim())}`}
+                  title="Trailer preview"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="absolute inset-0 w-full h-full"
+                />
+              </div>
+            )}
+            {trailerInput.trim() && (
+              <button
+                onClick={() => setTrailerInput("")}
+                className="mt-2 text-xs text-on-surface/40 hover:text-red-400 transition-colors"
+              >
+                Remove trailer
+              </button>
+            )}
+          </div>
+
+          {/* Screenshots */}
+          <div>
+            <label className={labelCls}>Screenshots</label>
+            <p className="text-xs text-on-surface/40 mb-3">Paste an IGDB image URL or image ID to add. Click a screenshot to remove it.</p>
+            {screenshotIds.length > 0 && (
+              <div className="flex flex-wrap gap-3 mb-4">
+                {screenshotIds.map((id) => (
+                  <button
+                    key={id}
+                    onClick={() => setScreenshotIds((prev) => prev.filter((s) => s !== id))}
+                    title="Click to remove"
+                    className="relative group rounded-lg overflow-hidden shrink-0"
+                  >
+                    <img
+                      src={`https://images.igdb.com/igdb/image/upload/t_screenshot_med/${id}.jpg`}
+                      alt=""
+                      className="h-28 w-auto object-cover group-hover:opacity-50 transition-opacity"
+                      loading="lazy"
+                    />
+                    <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="material-symbols-outlined text-white text-2xl drop-shadow">delete</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                value={screenshotInput}
+                onChange={(e) => setScreenshotInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && screenshotInput.trim()) {
+                    const id = extractIgdbImageId(screenshotInput.trim());
+                    if (id && !screenshotIds.includes(id)) setScreenshotIds((prev) => [...prev, id]);
+                    setScreenshotInput("");
+                  }
+                }}
+                placeholder="https://images.igdb.com/igdb/image/upload/t_screenshot_big/IMAGE_ID.jpg"
+                className={inputCls}
+              />
+              <button
+                onClick={() => {
+                  const id = extractIgdbImageId(screenshotInput.trim());
+                  if (id && !screenshotIds.includes(id)) setScreenshotIds((prev) => [...prev, id]);
+                  setScreenshotInput("");
+                }}
+                disabled={!screenshotInput.trim()}
+                className="px-4 py-2 rounded-lg bg-accent/15 text-accent text-sm font-bold hover:bg-accent/25 disabled:opacity-40 shrink-0"
+              >
+                Add
+              </button>
+            </div>
           </div>
         </div>
       )}

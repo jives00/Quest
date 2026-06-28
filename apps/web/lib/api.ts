@@ -173,6 +173,8 @@ export interface GameDetail {
   inWishlist: boolean;
   itadEnabled: boolean;
   vrSupported: boolean;
+  trailerVideoIds: string[];
+  screenshotImageIds: string[];
 }
 
 export interface GameMetadataPatch {
@@ -188,6 +190,8 @@ export interface GameMetadataPatch {
   hltbCompletionistHours?: number | null;
   genres?: string[];
   tags?: string[];
+  trailerVideoIds?: string[];
+  screenshotImageIds?: string[];
 }
 
 export interface ArtworkCandidates {

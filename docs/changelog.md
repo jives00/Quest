@@ -4,10 +4,16 @@
 
 ### Frontend – Web
 - Home: fixed hero banner double-image flash caused by React Strict Mode double-invoking the hero fetch; seed is now generated once per page mount and passed to the API so repeated calls return the same game `add56f1`
+- Game detail: achievements section — Group DLC toggle, per-group progress bar and counter, larger/white group headers, improved locked achievement contrast, bg-surface-container rows `a6a5d1d`
+- Game detail: sidebar — ownership moved above links, notes section removed, list name font size increased `a6a5d1d`
+- Game detail: Media section between description and achievements with 16:9 main viewer, looping chevron navigation, and thumbnail strip (trailer + screenshots); clicking a thumbnail swaps the main display `8b5fa77`
+- Edit modal: new Media tab to set/preview YouTube trailer and add/remove IGDB screenshots by URL or image ID `8b5fa77`
 
 ### Backend
 - Dashboard hero endpoint: uses client-supplied `?seed` for `RAND(seed)` instead of unseeded `RAND()`, making the selection stable within a page load while varying per reload `add56f1`
-- Dashboard summary: `finishedCount` now includes games with `other` status in addition to `completed` `4dbef81`
+- Dashboard summary: `finishedCount` now includes games with `other` status in addition to `completed` `341f24c`
+- Game enrichment: fetch and store YouTube trailer video IDs and IGDB screenshot image IDs from IGDB on each enrich run; `GameMetadataPatch` exposes both for manual editing `8b5fa77`
+- Migration 031: `trailer_video_ids` and `screenshot_image_ids` JSON columns on `games` table `8b5fa77`
 
 ## June 27, 2026
 

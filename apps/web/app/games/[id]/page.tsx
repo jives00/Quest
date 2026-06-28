@@ -198,14 +198,12 @@ export default function GameDetailPage() {
   const [error, setError] = useState("");
 
   // Editable state
-  const [notes, setNotes] = useState("");
-  const [notesEditing, setNotesEditing] = useState(false);
-  const [notesSaving, setNotesSaving] = useState(false);
   const [ratingInput, setRatingInput] = useState<number | null>(null);
   const [ratingSaving, setRatingSaving] = useState(false);
 
-  // Achievement sort
+  // Achievement sort + grouping
   const [achSort, setAchSort] = useState<"default" | "rarity" | "date" | "name" | "locked">("default");
+  const [groupDlc, setGroupDlc] = useState(true);
 
   // Action states
   const [enriching, setEnriching] = useState(false);
@@ -219,6 +217,9 @@ export default function GameDetailPage() {
 
   // Completions refresh trigger
   const [completionsRefreshKey, setCompletionsRefreshKey] = useState(0);
+
+  // Media viewer: null = show trailer, string = show screenshot by image ID
+  const [activeScreenshot, setActiveScreenshot] = useState<string | null>(null);
 
   // List keyboard navigation
   const navContext = useRef(loadGameNavContext());
@@ -238,7 +239,6 @@ export default function GameDetailPage() {
     Promise.all([api.getGame(id, token), api.getLists(token)])
       .then(([g, ls]) => {
         setGame(g);
-        setNotes(g.notes ?? "");
         setRatingInput(g.rating);
         setLists(ls);
       })
@@ -294,25 +294,6 @@ export default function GameDetailPage() {
       setRatingSaving(false);
     }
   }, [token, game]);
-
-  const handleNotesSave = useCallback(async () => {
-    if (!token || !game) return;
-    setNotesSaving(true);
-    try {
-      if (notes.trim()) {
-        await api.setNotes(game.id, notes, token);
-        setGame((prev) => prev ? { ...prev, notes } : prev);
-      } else {
-        await api.clearNotes(game.id, token);
-        setGame((prev) => prev ? { ...prev, notes: null } : prev);
-      }
-      setNotesEditing(false);
-    } catch (err) {
-      console.error("Notes save error:", err);
-    } finally {
-      setNotesSaving(false);
-    }
-  }, [token, game, notes]);
 
   const handleOwnershipToggle = useCallback(async (platform: Platform, owns: boolean) => {
     if (!token || !game) return;
@@ -583,8 +564,105 @@ export default function GameDetailPage() {
               <p className="text-on-surface/60 text-base leading-relaxed">{game.summary}</p>
             )}
           </header>
+          {/* Media */}
+          {(game.trailerVideoIds.length > 0 || game.screenshotImageIds.length > 0) && (
+            <section className="flex flex-col gap-6">
+              <div>
+                <span className="block w-8 h-1 bg-accent rounded mb-2" />
+                <h2 className="text-h2 font-black tracking-tight text-on-surface">Media</h2>
+              </div>
+
+              {/* Main display: trailer or selected screenshot */}
+              {(() => {
+                const mediaItems: Array<{ type: "trailer" | "screenshot"; id: string }> = [
+                  ...(game.trailerVideoIds[0] ? [{ type: "trailer" as const, id: game.trailerVideoIds[0] }] : []),
+                  ...game.screenshotImageIds.map((id) => ({ type: "screenshot" as const, id })),
+                ];
+                const activeIndex = activeScreenshot === null
+                  ? (game.trailerVideoIds[0] ? 0 : -1)
+                  : mediaItems.findIndex((m) => m.type === "screenshot" && m.id === activeScreenshot);
+                const goTo = (idx: number) => {
+                  const item = mediaItems[idx];
+                  if (!item) return;
+                  setActiveScreenshot(item.type === "trailer" ? null : item.id);
+                };
+                return (
+                  <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: "16/9" }}>
+                    {activeScreenshot ? (
+                      <img
+                        src={`https://images.igdb.com/igdb/image/upload/t_1080p/${activeScreenshot}.jpg`}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-contain"
+                      />
+                    ) : game.trailerVideoIds[0] ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${game.trailerVideoIds[0]}`}
+                        title={`${game.title} trailer`}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        loading="lazy"
+                        className="absolute inset-0 w-full h-full"
+                      />
+                    ) : null}
+                    {mediaItems.length > 1 && (
+                      <>
+                        <button
+                          onClick={() => goTo((activeIndex - 1 + mediaItems.length) % mediaItems.length)}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 z-10 bg-black/40 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 text-white/80 hover:text-white transition-colors flex items-center justify-center"
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: "24px", lineHeight: 1 }}>chevron_left</span>
+                        </button>
+                        <button
+                          onClick={() => goTo((activeIndex + 1) % mediaItems.length)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 z-10 bg-black/40 hover:bg-black/70 backdrop-blur-sm rounded-full p-1.5 text-white/80 hover:text-white transition-colors flex items-center justify-center"
+                        >
+                          <span className="material-symbols-outlined" style={{ fontSize: "24px", lineHeight: 1 }}>chevron_right</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Thumbnail strip */}
+              {(game.trailerVideoIds.length > 0 || game.screenshotImageIds.length > 0) && (
+                <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollbarWidth: "thin" }}>
+                  {game.trailerVideoIds[0] && (
+                    <button
+                      onClick={() => setActiveScreenshot(null)}
+                      className={`flex-none relative rounded-lg overflow-hidden border-2 transition-all ${activeScreenshot === null ? "border-accent" : "border-transparent hover:border-outline-variant"}`}
+                    >
+                      <img
+                        src={`https://img.youtube.com/vi/${game.trailerVideoIds[0]}/mqdefault.jpg`}
+                        alt="Trailer"
+                        className="h-20 w-auto object-cover"
+                      />
+                      <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                        <span className="material-symbols-outlined text-white text-2xl">play_circle</span>
+                      </span>
+                    </button>
+                  )}
+                  {game.screenshotImageIds.map((id) => (
+                    <button
+                      key={id}
+                      onClick={() => setActiveScreenshot(id)}
+                      className={`flex-none rounded-lg overflow-hidden border-2 transition-all ${activeScreenshot === id ? "border-accent" : "border-transparent hover:border-outline-variant"}`}
+                    >
+                      <img
+                        src={`https://images.igdb.com/igdb/image/upload/t_screenshot_med/${id}.jpg`}
+                        alt=""
+                        className="h-20 w-auto object-cover"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Achievements */}
-          <section>
+          <section className="mt-4">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <span className="block w-8 h-1 bg-accent rounded mb-2" />
@@ -597,47 +675,74 @@ export default function GameDetailPage() {
                 )}
               </div>
               {game.achievementTotal > 0 && (
-                <div className="flex gap-2 flex-wrap">
-                  {(["default", "rarity", "date", "name", "locked"] as const).map((s) => (
+                <div className="flex flex-col items-end gap-2">
+                  <div className="flex gap-2 flex-wrap justify-end">
+                    {(["default", "rarity", "date", "name", "locked"] as const).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setAchSort(s)}
+                        className={`text-xs font-bold uppercase tracking-widest px-2 py-1 rounded ${
+                          achSort === s ? "bg-accent/20 text-accent" : "text-on-surface/40 hover:text-on-surface"
+                        }`}
+                      >
+                        {s === "default" ? "Default" : s === "rarity" ? "Rarity" : s === "date" ? "Date" : s === "name" ? "Name" : "Locked"}
+                      </button>
+                    ))}
+                  </div>
+                  {achievementGroups.length > 1 && (
                     <button
-                      key={s}
-                      onClick={() => setAchSort(s)}
-                      className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${
-                        achSort === s ? "bg-accent/20 text-accent" : "text-on-surface/40 hover:text-on-surface"
+                      onClick={() => setGroupDlc((v) => !v)}
+                      className={`text-xs font-bold uppercase tracking-widest px-2 py-1 rounded border transition-colors ${
+                        groupDlc
+                          ? "bg-accent/20 text-accent border-accent/30"
+                          : "text-on-surface/40 border-outline-variant/30 hover:text-on-surface"
                       }`}
                     >
-                      {s === "default" ? "Default" : s === "rarity" ? "Rarity" : s === "date" ? "Date" : s === "name" ? "Name" : "Locked"}
+                      Group DLC
                     </button>
-                  ))}
+                  )}
                 </div>
               )}
             </div>
 
             {game.achievementTotal === 0 ? (
               <p className="text-on-surface/40 text-sm">No achievements.</p>
-            ) : achievementGroups.length === 1 ? (
+            ) : !groupDlc || achievementGroups.length === 1 ? (
               <div className="flex flex-col gap-2">
-                {achievementGroups[0].achievements.map((ach) => (
+                {sortedAchievements.map((ach) => (
                   <AchievementRow key={ach.apiName} achievement={ach} />
                 ))}
               </div>
             ) : (
-              <div className="flex flex-col gap-6">
-                {achievementGroups.map((group) => (
-                  <details key={group.label} open>
-                    <summary className="flex items-center justify-between cursor-pointer list-none mb-3 select-none">
-                      <span className="text-xs font-bold uppercase tracking-widest text-on-surface/40">{group.label}</span>
-                      <span className="text-xs text-on-surface/30">
-                        {group.achievements.filter((a) => a.unlockedAt).length}/{group.achievements.length}
-                      </span>
-                    </summary>
-                    <div className="flex flex-col gap-2">
-                      {group.achievements.map((ach) => (
-                        <AchievementRow key={ach.apiName} achievement={ach} />
-                      ))}
-                    </div>
-                  </details>
-                ))}
+              <div className="flex flex-col gap-6 mt-10">
+                {achievementGroups.map((group) => {
+                  const earned = group.achievements.filter((a) => a.unlockedAt).length;
+                  const total = group.achievements.length;
+                  const pct = total > 0 ? Math.round((earned / total) * 100) : 0;
+                  return (
+                    <details key={group.label} open>
+                      <summary className="cursor-pointer list-none mb-3 select-none">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-base font-bold uppercase tracking-widest text-white">{group.label}</span>
+                          <span className="text-sm font-semibold text-on-surface/70">
+                            {earned}/{total} ({pct}%)
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-surface-container rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-accent rounded-full transition-all"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </summary>
+                      <div className="flex flex-col gap-2 mt-3">
+                        {group.achievements.map((ach) => (
+                          <AchievementRow key={ach.apiName} achievement={ach} />
+                        ))}
+                      </div>
+                    </details>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -773,60 +878,6 @@ export default function GameDetailPage() {
             </div>
           )}
 
-          {/* External Links */}
-          {game.steamAppId && (
-            <section className="glass-panel rounded-xl p-5">
-              <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Links</h3>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  {
-                    label: "Steam",
-                    url: `https://store.steampowered.com/app/${game.steamAppId}`,
-                    icon: <SteamIcon className="w-5 h-5" />,
-                  },
-                  {
-                    label: "SteamDB",
-                    url: `https://steamdb.info/app/${game.steamAppId}/`,
-                    icon: (
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
-                      </svg>
-                    ),
-                  },
-                  {
-                    label: "ProtonDB",
-                    url: `https://www.protondb.com/app/${game.steamAppId}`,
-                    icon: (
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
-                        <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4a3 3 0 1 1 0 6 3 3 0 0 1 0-6zm0 14c-2.67 0-5.03-1.38-6.4-3.47.94-1.59 2.67-2.53 6.4-2.53s5.46.94 6.4 2.53C17.03 17.62 14.67 19 12 19z"/>
-                      </svg>
-                    ),
-                  },
-                  {
-                    label: "PCGamingWiki",
-                    url: `https://www.pcgamingwiki.com/api/appid.php?appid=${game.steamAppId}`,
-                    icon: (
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
-                        <path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/>
-                      </svg>
-                    ),
-                  },
-                ].map((l) => (
-                  <a
-                    key={l.label}
-                    href={l.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={l.label}
-                    className="w-9 h-9 rounded-lg bg-surface-container border border-outline-variant/30 flex items-center justify-center text-on-surface/50 hover:text-on-surface hover:border-outline-variant/60 transition-colors"
-                  >
-                    {l.icon}
-                  </a>
-                ))}
-              </div>
-            </section>
-          )}
-
           {/* Rating */}
           <section className="glass-panel rounded-xl p-5">
             <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Rating</h3>
@@ -885,6 +936,31 @@ export default function GameDetailPage() {
             </div>
           </section>
 
+          {/* External Links */}
+          {game.steamAppId && (
+            <section className="glass-panel rounded-xl p-5">
+              <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Links</h3>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: "Steam", url: `https://store.steampowered.com/app/${game.steamAppId}` },
+                  { label: "SteamDB", url: `https://steamdb.info/app/${game.steamAppId}/` },
+                  { label: "ProtonDB", url: `https://www.protondb.com/app/${game.steamAppId}` },
+                  { label: "PCGamingWiki", url: `https://www.pcgamingwiki.com/api/appid.php?appid=${game.steamAppId}` },
+                ].map((l) => (
+                  <a
+                    key={l.label}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-sm font-medium text-on-surface/60 hover:text-on-surface hover:border-outline-variant/60 transition-colors"
+                  >
+                    {l.label}
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Lists */}
           <section className="glass-panel rounded-xl p-5">
             <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Lists</h3>
@@ -895,7 +971,7 @@ export default function GameDetailPage() {
                   <button
                     key={l.id}
                     onClick={() => handleListToggle(l.id, inList)}
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-base font-medium transition-colors ${
                       inList
                         ? "bg-accent/20 text-accent border border-accent/30"
                         : "bg-surface-container text-on-surface/50 border border-outline-variant/30 hover:text-on-surface"
@@ -914,44 +990,6 @@ export default function GameDetailPage() {
             </div>
           </section>
 
-          {/* Notes */}
-          <section className="glass-panel rounded-xl p-5">
-            <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Notes</h3>
-            {notesEditing ? (
-              <div className="flex flex-col gap-2">
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={5}
-                  className="w-full bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface text-sm focus:outline-none focus:border-accent resize-none"
-                  placeholder="Add notes…"
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleNotesSave}
-                    disabled={notesSaving}
-                    className="px-3 py-1.5 rounded-lg bg-accent text-white text-xs font-bold uppercase tracking-widest hover:bg-accent-hover transition-colors"
-                  >
-                    {notesSaving ? "Saving…" : "Save"}
-                  </button>
-                  <button
-                    onClick={() => { setNotes(game.notes ?? ""); setNotesEditing(false); }}
-                    className="px-3 py-1.5 rounded-lg bg-surface-container text-on-surface/60 border border-outline-variant/40 text-xs font-bold uppercase tracking-widest"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div onClick={() => setNotesEditing(true)} className="cursor-text">
-                {game.notes ? (
-                  <p className="text-sm text-on-surface/80 whitespace-pre-wrap">{game.notes}</p>
-                ) : (
-                  <p className="text-sm text-on-surface/30 italic">Click to add notes…</p>
-                )}
-              </div>
-            )}
-          </section>
         </div>
       </div>
 
@@ -990,9 +1028,9 @@ function AchievementRow({ achievement }: { achievement: Achievement }) {
   const rarity = achievement.globalPct != null ? rarityLabel(achievement.globalPct) : null;
 
   return (
-    <div className={`glass-panel rounded-lg px-4 py-3 flex items-center gap-4 ${!unlocked ? "opacity-50" : ""}`}>
+    <div className="bg-surface-container rounded-lg px-4 py-3 flex items-center gap-4">
       {achievement.icon ? (
-        <img src={achievement.icon} alt="" className="self-stretch w-auto max-h-16 rounded shrink-0" />
+        <img src={achievement.icon} alt="" className={`self-stretch w-auto max-h-16 rounded shrink-0 ${!unlocked ? "opacity-40 grayscale" : ""}`} />
       ) : (
         <div className="self-stretch max-h-16 aspect-square rounded bg-surface-container flex items-center justify-center shrink-0">
           <span className="material-symbols-outlined text-on-surface/20 text-xl">emoji_events</span>
@@ -1000,13 +1038,13 @@ function AchievementRow({ achievement }: { achievement: Achievement }) {
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-base font-semibold text-on-surface">{achievement.name}</p>
+          <p className={`text-base font-semibold ${unlocked ? "text-on-surface" : "text-on-surface/60"}`}>{achievement.name}</p>
           {hiddenLocked && (
             <span className="material-symbols-outlined text-on-surface/30 text-base" title="Hidden achievement">lock</span>
           )}
         </div>
         {achievement.description ? (
-          <p className="text-sm text-on-surface/50 mt-0.5 line-clamp-2">{achievement.description}</p>
+          <p className={`text-sm mt-0.5 line-clamp-2 ${unlocked ? "text-on-surface/50" : "text-on-surface/40"}`}>{achievement.description}</p>
         ) : achievement.isHidden ? (
           <p className="text-sm text-on-surface/30 mt-0.5 italic">Description hidden</p>
         ) : null}
@@ -1015,7 +1053,7 @@ function AchievementRow({ achievement }: { achievement: Achievement }) {
             <p className="text-sm text-on-surface/40">Unlocked {new Date(achievement.unlockedAt).toLocaleDateString()}</p>
           )}
           {rarity && (
-            <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${rarity.className}`}>
+            <span className={`text-xs font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${rarity.className}`}>
               {rarity.label} · {achievement.globalPct!.toFixed(1)}%
             </span>
           )}

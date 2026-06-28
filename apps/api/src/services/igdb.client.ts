@@ -40,6 +40,11 @@ export interface IgdbGame {
   hypes?: number;
 }
 
+export interface IgdbGameMedia {
+  trailerVideoIds: string[];
+  screenshotImageIds: string[];
+}
+
 export type DiscoverCategory =
   | 'trending'
   | 'new_releases'
@@ -279,4 +284,34 @@ export async function discoverGames(opts: IgdbDiscoverOptions): Promise<IgdbGame
  */
 export function coverUrl(imageId: string, size = 't_cover_big'): string {
   return `${IMAGE_BASE}/${size}/${imageId}.jpg`;
+}
+
+/**
+ * Build the public CDN URL for an IGDB screenshot.
+ * Common sizes: t_screenshot_med (569×320), t_screenshot_big (889×500), t_1080p.
+ */
+export function screenshotUrl(imageId: string, size = 't_screenshot_big'): string {
+  return `${IMAGE_BASE}/${size}/${imageId}.jpg`;
+}
+
+/**
+ * Fetch trailer video IDs (YouTube) and screenshot image IDs for a game by IGDB id.
+ */
+export async function getGameMedia(igdbId: number): Promise<IgdbGameMedia> {
+  const body =
+    `fields videos.video_id,screenshots.image_id;` +
+    ` where id = ${igdbId}; limit 1;`;
+
+  const results = await post<Array<{
+    videos?: Array<{ video_id: string }>;
+    screenshots?: Array<{ image_id: string }>;
+  }>>('games', body);
+
+  const game = results[0];
+  if (!game) return { trailerVideoIds: [], screenshotImageIds: [] };
+
+  return {
+    trailerVideoIds: (game.videos ?? []).map(v => v.video_id),
+    screenshotImageIds: (game.screenshots ?? []).map(s => s.image_id),
+  };
 }

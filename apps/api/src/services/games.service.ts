@@ -3,6 +3,7 @@ import { getPool } from '../db';
 import {
   searchGames as igdbSearch,
   getGameById as igdbGetById,
+  getGameMedia as igdbGetMedia,
   coverUrl,
   IgdbGame,
 } from './igdb.client';
@@ -111,6 +112,8 @@ export interface GameDetail {
   inWishlist: boolean;
   itadEnabled: boolean;
   vrSupported: boolean;
+  trailerVideoIds: string[];
+  screenshotImageIds: string[];
 }
 
 /** mysql2 auto-parses JSON columns into JS arrays; guard against double-parsing. */
@@ -137,6 +140,7 @@ export async function getGameDetail(userId: number, gameId: number): Promise<Gam
             g.hltb_main_hours, g.hltb_main_extra_hours, g.hltb_completionist_hours, g.metacritic,
             g.steam_review_desc, g.steam_review_pct, g.steam_review_count,
             g.controller_support, g.metacritic_url, g.vr_supported,
+            g.trailer_video_ids, g.screenshot_image_ids,
             (SELECT e.external_id FROM external_game_ids e
                WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steam_app_id,
             EXISTS (SELECT 1 FROM hidden_games h
@@ -304,6 +308,8 @@ export async function getGameDetail(userId: number, gameId: number): Promise<Gam
     inWishlist,
     itadEnabled: isItadEnabled(),
     vrSupported: Boolean(g.vr_supported),
+    trailerVideoIds: toStringArray(g.trailer_video_ids),
+    screenshotImageIds: toStringArray(g.screenshot_image_ids),
   };
 }
 
@@ -324,6 +330,8 @@ export interface GameMetadataPatch {
   hltbCompletionistHours?: number | null;
   genres?: string[];
   tags?: string[];
+  trailerVideoIds?: string[];
+  screenshotImageIds?: string[];
 }
 
 /**
@@ -394,6 +402,14 @@ export async function updateGameMetadata(
   if (patch.tags !== undefined) {
     sets.push('tags = CAST(? AS JSON)');
     params.push(JSON.stringify(patch.tags.map(s => s.trim()).filter(Boolean)));
+  }
+  if (patch.trailerVideoIds !== undefined) {
+    sets.push('trailer_video_ids = CAST(? AS JSON)');
+    params.push(JSON.stringify(patch.trailerVideoIds));
+  }
+  if (patch.screenshotImageIds !== undefined) {
+    sets.push('screenshot_image_ids = CAST(? AS JSON)');
+    params.push(JSON.stringify(patch.screenshotImageIds));
   }
 
   if (sets.length === 0) return true; // nothing to change
@@ -514,6 +530,7 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
     `SELECT g.title, g.match_status, g.metacritic, g.hltb_main_hours,
             g.hltb_main_extra_hours, g.hltb_completionist_hours,
             g.igdb_id, g.first_release_date, g.vr_manual,
+            g.trailer_video_ids, g.screenshot_image_ids,
             (SELECT e.external_id FROM external_game_ids e
                WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steam_app_id
        FROM games g WHERE g.id = ?`,
@@ -528,6 +545,8 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
   const vrManual = Boolean(row.vr_manual);
   const igdbId = row.igdb_id as number | null;
   const currentReleaseDate = row.first_release_date as string | null;
+  const hasTrailers = row.trailer_video_ids != null;
+  const hasScreenshots = row.screenshot_image_ids != null;
 
   const sets: string[] = [];
   const params: unknown[] = [];
@@ -545,6 +564,23 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
       }
     } catch (err) {
       console.error('IGDB release date refresh failed:', err);
+    }
+  }
+
+  // Fetch trailers + screenshots from IGDB when not yet stored
+  if (igdbId && (!hasTrailers || !hasScreenshots)) {
+    try {
+      const media = await igdbGetMedia(igdbId);
+      if (!hasTrailers) {
+        sets.push('trailer_video_ids = ?');
+        params.push(JSON.stringify(media.trailerVideoIds));
+      }
+      if (!hasScreenshots) {
+        sets.push('screenshot_image_ids = ?');
+        params.push(JSON.stringify(media.screenshotImageIds.slice(0, 10)));
+      }
+    } catch (err) {
+      console.error('IGDB media fetch failed:', err);
     }
   }
 
