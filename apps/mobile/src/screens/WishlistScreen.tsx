@@ -34,6 +34,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 interface WishlistEntry {
   game: LibraryGame;
   price: WishlistPrice | null;
+  priceLoading: boolean;
 }
 
 function sortEntries(entries: WishlistEntry[], sort: SortKey): WishlistEntry[] {
@@ -88,18 +89,21 @@ export default function WishlistScreen() {
     }
     const detail: QuestListDetail = await api.getListDetail(wishlist.id, token);
     const games = detail.games ?? [];
-    const priceResults = await Promise.allSettled(
-      games.map((g) => api.getWishlistPrice(g.id, token))
-    );
-    setEntries(
-      games.map((g, i) => ({
-        game: g,
-        price:
-          priceResults[i].status === "fulfilled"
-            ? (priceResults[i] as PromiseFulfilledResult<WishlistPrice>).value
-            : null,
-      }))
-    );
+    // Render games immediately with price placeholders, then fill prices in as they arrive.
+    setEntries(games.map((g) => ({ game: g, price: null, priceLoading: true })));
+    for (const g of games) {
+      api.getWishlistPrice(g.id, token)
+        .then((price) => {
+          setEntries((prev) =>
+            prev.map((e) => (e.game.id === g.id ? { ...e, price, priceLoading: false } : e))
+          );
+        })
+        .catch(() => {
+          setEntries((prev) =>
+            prev.map((e) => (e.game.id === g.id ? { ...e, price: null, priceLoading: false } : e))
+          );
+        });
+    }
   }, [token]);
 
   useEffect(() => {
@@ -194,7 +198,9 @@ export default function WishlistScreen() {
               {item.game.metacritic != null && (
                 <Text style={s.rating}>MC {item.game.metacritic}</Text>
               )}
-              {item.price ? (
+              {item.priceLoading ? (
+                <View style={s.pricePlaceholder} />
+              ) : item.price ? (
                 <Text style={item.price.current ? s.price : s.priceNA}>
                   {item.price.current
                     ? `$${item.price.current.price.toFixed(2)} · ${item.price.current.shop}`
@@ -255,4 +261,11 @@ const s = StyleSheet.create({
   rating: { color: "#aaa", fontSize: 11, marginTop: 2 },
   price: { color: "#4caf50", fontSize: 12, marginTop: 3 },
   priceNA: { color: "#555", fontSize: 12, marginTop: 3 },
+  pricePlaceholder: {
+    width: 90,
+    height: 12,
+    borderRadius: 4,
+    backgroundColor: "#2a2d3a",
+    marginTop: 5,
+  },
 });

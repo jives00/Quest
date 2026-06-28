@@ -21,6 +21,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 interface WishlistEntry {
   game: LibraryGame;
   price: WishlistPrice | null;
+  priceLoading: boolean;
 }
 
 export default function WishlistPage() {
@@ -40,21 +41,27 @@ export default function WishlistPage() {
     api.getLists(token)
       .then(async (lists) => {
         const wishlist = lists.find((l) => l.systemKey === "wishlist");
-        if (!wishlist) return;
+        if (!wishlist) {
+          setEntries([]);
+          return;
+        }
         const detail = await api.getListDetail(wishlist.id, token);
         const games = detail.games;
-        const priceResults = await Promise.allSettled(
-          games.map((g) => api.getWishlistPrice(g.id, token))
-        );
-        setEntries(
-          games.map((g, i) => ({
-            game: g,
-            price:
-              priceResults[i].status === "fulfilled"
-                ? (priceResults[i] as PromiseFulfilledResult<WishlistPrice>).value
-                : null,
-          }))
-        );
+        // Render games immediately with price placeholders, then fill prices in as they arrive.
+        setEntries(games.map((g) => ({ game: g, price: null, priceLoading: true })));
+        for (const g of games) {
+          api.getWishlistPrice(g.id, token)
+            .then((price) => {
+              setEntries((prev) =>
+                prev.map((e) => (e.game.id === g.id ? { ...e, price, priceLoading: false } : e))
+              );
+            })
+            .catch(() => {
+              setEntries((prev) =>
+                prev.map((e) => (e.game.id === g.id ? { ...e, price: null, priceLoading: false } : e))
+              );
+            });
+        }
       })
       .catch((err) => console.error("Wishlist load error:", err))
       .finally(() => setLoading(false));
@@ -138,7 +145,7 @@ export default function WishlistPage() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {sorted.map(({ game, price }) => {
+            {sorted.map(({ game, price, priceLoading }) => {
               const releaseLabel = game.firstReleaseDate
                 ? new Date(game.firstReleaseDate).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
                 : "TBD";
@@ -174,7 +181,9 @@ export default function WishlistPage() {
                     {game.metacritic != null && (
                       <p className="text-xs text-on-surface/60">MC {game.metacritic}</p>
                     )}
-                    {price && (
+                    {priceLoading ? (
+                      <span className="mt-0.5 h-3 w-16 rounded bg-on-surface/10 animate-pulse" />
+                    ) : price ? (
                       <p className="text-xs">
                         {currentPrice ? (
                           <span className="text-green-400 font-medium">${currentPrice.price.toFixed(2)}</span>
@@ -185,7 +194,7 @@ export default function WishlistPage() {
                           <span className="text-on-surface/30"> | Low ${lowestPrice.price.toFixed(2)}</span>
                         )}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </Link>
               );

@@ -7,6 +7,7 @@
 - Navbar: replaced joystick material icon with Quest app icon image `e083006`
 - Favicon: added Quest icon as web favicon via Next.js `app/icon.png` `e083006`
 - Wishlist: sort pills (A–Z, Release, Rating, Price); custom card grid showing title, release date, MC score, and current/low price on one line `47a17ef`
+- Wishlist: render games immediately with price placeholders and stream in ITAD prices per-card as they resolve, instead of blocking the whole page on all price lookups `a05515f`
 - Game detail: achievements now group into per-DLC sections (Base Game + expansion/DLC groups) `2e9f25d`
 
 ### Frontend – Mobile
@@ -17,6 +18,7 @@
 - Discover: fixed filter chip text clipping on Android `0ed59de`
 - Stats: replaced 8-card overview + separate By Status section with a 2×2 grid (Lifetime · Achievements · Backlog · Completed) matching the web layout; added `formatHours` compact formatter to prevent overflow on the Lifetime card `0ed59de`
 - Wishlist: promoted to bottom nav tab (swapped with Discover); fixed price display (ITAD returns dollars, was dividing by 100); added release date; differentiated "Not currently listed" from "No price data"; added historical low price display without requiring a current deal; show "TBD" when release date is unknown `0ed59de` `fbad340`; sort chips (A–Z, Release, Rating, Price); MC score on each row; price condensed to one line (current | historical low) `47a17ef`
+- Wishlist: render games immediately with price placeholders and stream in ITAD prices per-row as they resolve, instead of blocking the whole screen on all price lookups `a05515f`
 - Lists: hide platform lists; remove systemKey subtitle from system list rows `fbad340`
 - Navigation: Wishlist is now a top-level tab; Discover moved to the More menu `0ed59de`
 
