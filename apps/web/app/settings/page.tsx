@@ -1115,7 +1115,7 @@ function ManualImportPanel({
         >
           {[
             ...IMPORT_SOURCES.map((src) => ({ value: src, label: PLATFORM_LABELS[src as Platform] })),
-            ...userPlatforms.map((up) => ({ value: String(up.id), label: up.icon ? `${up.icon} ${up.name}` : up.name })),
+            ...userPlatforms.map((up) => ({ value: String(up.id), label: up.name })),
           ].sort((a, b) => a.label.localeCompare(b.label)).map((p) => (
             <option key={p.value} value={p.value}>{p.label}</option>
           ))}

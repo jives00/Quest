@@ -100,7 +100,7 @@ export default function LibraryPage() {
               <option value="">All Platforms</option>
               {[
                 ...BUILTIN_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
-                ...userPlatforms.map((up) => ({ value: `custom:${up.id}`, label: up.icon ? `${up.icon} ${up.name}` : up.name })),
+                ...userPlatforms.map((up) => ({ value: `custom:${up.id}`, label: up.name })),
               ].sort((a, b) => a.label.localeCompare(b.label)).map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
@@ -170,7 +170,7 @@ export default function LibraryPage() {
               Hidden
             </button>
 
-            <span className="ml-auto text-sm text-on-surface/40">{games.length} games</span>
+            <span className="ml-auto text-base font-medium text-on-surface/40">{games.length} games</span>
           </div>
         </div>
       </section>

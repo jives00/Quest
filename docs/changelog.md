@@ -3,6 +3,8 @@
 ## June 28, 2026
 
 ### Frontend – Web
+- Library: platform dropdown shows name only for custom platforms (was prepending image URL); game count bumped to text-base `ec83094`
+- Settings › Imports: same URL-in-label fix for custom platform dropdown `ec83094`
 - Game detail: completion date picker now auto-saves on date select — no Confirm button needed; fixes native date popup closing dropdown before save `893b5a9`
 - Settings › Platforms: unified editable list for built-in and custom platforms; built-ins renameable with icon override; custom platforms support inline name/icon editing and delete `ba980ba`
 - Icon picker: URL input popover with live image preview; `PlatformIcon` component renders URL as `<img>` or emoji as text `ba980ba`
