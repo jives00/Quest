@@ -7,7 +7,6 @@ import {
   api,
   type DiscoverCategory,
   type DiscoverGame,
-  type GenreOption,
 } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -48,12 +47,6 @@ const CATEGORIES: {
     icon: "local_fire_department",
     description: "What's selling right now on Steam",
   },
-  {
-    id: "by_genre",
-    label: "By Genre",
-    icon: "category",
-    description: "Browse games by genre",
-  },
 ];
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -67,8 +60,6 @@ export default function DiscoverPage() {
   const [category, setCategory] = useState<DiscoverCategory>((searchParams.get("cat") as DiscoverCategory) || "trending");
   const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
   const [year, setYear] = useState<number | undefined>(searchParams.get("year") ? Number(searchParams.get("year")) : undefined);
-  const [genreId, setGenreId] = useState<number | undefined>(searchParams.get("genre") ? Number(searchParams.get("genre")) : undefined);
-
   function updateUrl(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
     for (const [k, v] of Object.entries(updates)) {
@@ -77,7 +68,6 @@ export default function DiscoverPage() {
     }
     router.replace(`?${params.toString()}`);
   }
-  const [genres, setGenres] = useState<GenreOption[]>([]);
   const [items, setItems] = useState<DiscoverGame[]>([]);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -88,23 +78,13 @@ export default function DiscoverPage() {
     if (!isLoading && !token) router.push("/login");
   }, [token, isLoading, router]);
 
-  useEffect(() => {
-    if (!token) return;
-    api.getDiscoverGenres(token).then(setGenres).catch(() => {});
-  }, [token]);
-
   const load = useCallback(async () => {
     if (!token) return;
-    if (category === "by_genre" && !genreId) {
-      setItems([]);
-      setHasNextPage(false);
-      return;
-    }
     setLoading(true);
     setItems([]);
     setError(null);
     try {
-      const result = await api.discover(category, token, { page, year, genreId });
+      const result = await api.discover(category, token, { page, year });
       setItems(result.items);
       setHasNextPage(result.hasNextPage);
     } catch (err) {
@@ -114,7 +94,7 @@ export default function DiscoverPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, category, page, year, genreId]);
+  }, [token, category, page, year]);
 
   useEffect(() => {
     load();
@@ -124,11 +104,10 @@ export default function DiscoverPage() {
     setItems([]);
     setHasNextPage(false);
     setError(null);
-    setLoading(cat !== "by_genre");
+    setLoading(true);
     setCategory(cat);
     setPage(1);
     setYear(undefined);
-    setGenreId(undefined);
     updateUrl({ cat: cat === "trending" ? null : cat, page: null, year: null, genre: null });
   }
 
@@ -236,25 +215,6 @@ export default function DiscoverPage() {
                     ))}
                   </select>
                 )}
-                {category === "by_genre" && (
-                  <select
-                    value={genreId ?? ""}
-                    onChange={(e) => {
-                      const v = e.target.value ? Number(e.target.value) : undefined;
-                      setGenreId(v);
-                      setPage(1);
-                      updateUrl({ genre: v ? String(v) : null, page: null });
-                    }}
-                    className="bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface text-sm focus:outline-none focus:border-accent transition-colors"
-                  >
-                    <option value="">Pick a genre…</option>
-                    {genres.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
-                )}
               </div>
             </div>
           </div>
@@ -277,13 +237,6 @@ export default function DiscoverPage() {
                     } bg-surface-container rounded animate-pulse`}
                   />
                 ))}
-              </div>
-            ) : category === "by_genre" && !genreId ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-4">
-                <span className="material-symbols-outlined text-5xl text-on-surface/20">
-                  category
-                </span>
-                <p className="text-on-surface/40">Pick a genre above to browse games.</p>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center py-24 gap-4">

@@ -8,6 +8,7 @@
 - Game detail: sidebar — ownership moved above links, notes section removed, list name font size increased `a6a5d1d`
 - Game detail: Media section between description and achievements with 16:9 main viewer, looping chevron navigation, and thumbnail strip (trailer + screenshots); clicking a thumbnail swaps the main display `8b5fa77`
 - Edit modal: new Media tab to set/preview YouTube trailer and add/remove IGDB screenshots by URL or image ID `8b5fa77`
+- Discover: removed By Genre tab and all associated genre state/UI `c4fc3e2`
 
 ### Backend
 - Dashboard hero endpoint: uses client-supplied `?seed` for `RAND(seed)` instead of unseeded `RAND()`, making the selection stable within a page load while varying per reload `add56f1`
