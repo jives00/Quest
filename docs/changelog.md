@@ -3,6 +3,13 @@
 ## June 28, 2026
 
 ### Frontend – Web
+- Settings › Platforms: unified editable list for built-in and custom platforms; built-ins renameable with icon override; custom platforms support inline name/icon editing and delete `ba980ba`
+- Icon picker: URL input popover with live image preview; `PlatformIcon` component renders URL as `<img>` or emoji as text `ba980ba`
+- Library: platform filter is a flat alpha-sorted list including custom platforms `ba980ba`
+- Settings › Imports: platform dropdown unified with library filter (same sorted list) `ba980ba`
+- Game detail: ownership buttons use icon overrides for built-in platforms and icon-only display for custom platforms `ba980ba`
+
+### Backend
 - Home: fixed hero banner double-image flash caused by React Strict Mode double-invoking the hero fetch; seed is now generated once per page mount and passed to the API so repeated calls return the same game `add56f1`
 - Game detail: achievements section — Group DLC toggle, per-group progress bar and counter, larger/white group headers, improved locked achievement contrast, bg-surface-container rows `a6a5d1d`
 - Game detail: sidebar — ownership moved above links, notes section removed, list name font size increased `a6a5d1d`
@@ -15,6 +22,11 @@
 - Stats: Ownership by Platform legend replaced with custom 2-column grid; pie tooltip uses shared ChartTooltip style `97fbe08`
 
 ### Backend
+- Custom platforms (`user_platforms`) fully wired: ownership on game detail, library filter, imports dropdown, stats breakdown `ba980ba`
+- New `custom_ownership` routes: POST/DELETE `/api/custom-ownership`; library base query includes games only in `custom_ownership` `ba980ba`
+- New `platform-overrides` routes: GET/PUT/DELETE `/api/platform-overrides/:platform` for per-user built-in platform name+icon overrides `ba980ba`
+- Fix: PATCH `/api/user-platforms/:id` null-trim crash when `icon` sent as `null` `ba980ba`
+- Migrations 032–035: `icon` column on `user_platforms`, `user_platform_overrides` table, widen icon to TEXT `ba980ba`
 - Dashboard hero endpoint: uses client-supplied `?seed` for `RAND(seed)` instead of unseeded `RAND()`, making the selection stable within a page load while varying per reload `add56f1`
 - Dashboard summary: `finishedCount` now includes games with `other` status in addition to `completed` `341f24c`
 - Game enrichment: fetch and store YouTube trailer video IDs and IGDB screenshot image IDs from IGDB on each enrich run; `GameMetadataPatch` exposes both for manual editing `8b5fa77`

@@ -1,0 +1,1 @@
+ALTER TABLE user_platforms ADD COLUMN icon VARCHAR(10) NULL AFTER name;

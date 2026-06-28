@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { IconPicker } from "@/components/icon-picker";
+import { PlatformIcon } from "@/components/icon-picker/render";
 import {
   api,
   PLATFORM_LABELS,
@@ -13,6 +15,7 @@ import {
   type ImportSource,
   type Platform,
   type UserPlatform,
+  type PlatformOverride,
 } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +40,7 @@ export default function SettingsPage() {
   const { token, isLoading } = useAuth();
 
   const [accounts, setAccounts] = useState<PlatformAccount[]>([]);
+  const [userPlatforms, setUserPlatforms] = useState<UserPlatform[]>([]);
   const [steamId, setSteamId] = useState("");
   const [savingSteam, setSavingSteam] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -57,6 +61,7 @@ export default function SettingsPage() {
       const steam = a.find((x) => x.platform === "steam");
       if (steam?.steamId64) setSteamId(steam.steamId64);
     }).catch((err) => console.error("Platforms load error:", err));
+    api.getUserPlatforms(token).then(setUserPlatforms).catch(() => {});
     api.getProvisionalMatches(token).then(setProvisional).catch((err) => console.error(err));
     api.getDuplicates(token).then(setDuplicates).catch((err) => console.error(err));
   }
@@ -183,7 +188,7 @@ export default function SettingsPage() {
               These stores have no playtime API — import an owned-games list once, then maintain by hand.
               Paste one title per line (optionally <code>title,externalId</code>).
             </p>
-            <ManualImportPanel accounts={accounts} token={token} onChange={reload} />
+            <ManualImportPanel accounts={accounts} token={token} onChange={reload} userPlatforms={userPlatforms} />
           </div>
         )}
 
@@ -260,30 +265,153 @@ const BUILTIN_PLATFORMS: { slug: string; label: string; integration: string }[] 
   { slug: "meta_quest", label: "Meta Quest",        integration: "Library Imports" },
 ];
 
+const BUILTIN_PLATFORM_ICONS: Record<string, React.ReactNode> = {
+  steam: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="w-5 h-5"><path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z" /></svg>,
+  psn: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="w-5 h-5"><path d="M8.985 2.596v17.548l3.915 1.261V6.688c0-.69.304-1.151.794-.998.636.19.762.84.762 1.529v5.372c2.689 1.088 4.718-.169 4.718-3.53 0-3.44-1.194-4.988-4.688-6.076 0 0-3.037-.987-5.501-.389zM7.641 20.26c-2.69.239-4.73-1.075-4.73-2.963 0-1.79 1.567-3.272 4.33-3.862v2.01c-1.213.353-2.148.965-2.148 1.894 0 .995 1.002 1.494 2.548 1.214v1.707z" /></svg>,
+  xbox: <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden className="w-5 h-5"><path d="M7.202 15.967a8 8 0 0 1-3.552-1.26c-.898-.585-1.101-.826-1.101-1.306 0-.965 1.062-2.656 2.879-4.583C6.459 7.723 7.897 6.44 8.052 6.475c.302.068 2.718 2.423 3.622 3.531 1.43 1.753 2.088 3.189 1.754 3.829-.254.486-1.83 1.437-2.987 1.802-.954.301-2.207.429-3.239.33m-5.866-3.57C.589 11.253.212 10.127.03 8.497c-.06-.539-.038-.846.137-1.95.218-1.377 1.002-2.97 1.945-3.95.401-.417.437-.427.926-.263.595.2 1.23.638 2.213 1.528l.574.519-.313.385C4.056 6.553 2.52 9.086 1.94 10.653c-.315.852-.442 1.707-.306 2.063.091.24.007.15-.3-.319Zm13.101.195c.074-.36-.019-1.02-.238-1.687-.473-1.443-2.055-4.128-3.508-5.953l-.457-.575.494-.454c.646-.593 1.095-.948 1.58-1.25.381-.237.927-.448 1.161-.448.145 0 .654.528 1.065 1.104a8.4 8.4 0 0 1 1.343 3.102c.153.728.166 2.286.024 3.012a9.5 9.5 0 0 1-.6 1.893c-.179.393-.624 1.156-.82 1.404-.1.128-.1.127-.043-.148ZM7.335 1.952c-.67-.34-1.704-.705-2.276-.803a4 4 0 0 0-.759-.043c-.471.024-.45 0 .306-.358A7.8 7.8 0 0 1 6.47.128c.8-.169 2.306-.17 3.094-.005.85.18 1.853.552 2.418.9l.168.103-.385-.02c-.766-.038-1.88.27-3.078.853-.361.176-.676.316-.699.312a12 12 0 0 1-.654-.319Z" /></svg>,
+  epic: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="w-5 h-5"><path d="M3.537 0C2.165 0 1.66.506 1.66 1.879V18.44a4.262 4.262 0 00.02.433c.031.3.037.59.316.92.027.033.311.245.311.245.153.075.258.13.43.2l8.335 3.491c.433.199.614.276.928.27h.002c.314.006.495-.071.928-.27l8.335-3.492c.172-.07.277-.124.43-.2 0 0 .284-.211.311-.243.28-.33.285-.621.316-.92a4.261 4.261 0 00.02-.434V1.879c0-1.373-.506-1.88-1.878-1.88zm13.366 3.11h.68c1.138 0 1.688.553 1.688 1.696v1.88h-1.374v-1.8c0-.369-.17-.54-.523-.54h-.235c-.367 0-.537.17-.537.539v5.81c0 .369.17.54.537.54h.262c.353 0 .523-.171.523-.54V8.619h1.373v2.143c0 1.144-.562 1.71-1.7 1.71h-.694c-1.138 0-1.7-.566-1.7-1.71V4.82c0-1.144.562-1.709 1.7-1.709zm-12.186.08h3.114v1.274H6.117v2.603h1.648v1.275H6.117v2.774h1.74v1.275h-3.14zm3.816 0h2.198c1.138 0 1.7.564 1.7 1.708v2.445c0 1.144-.562 1.71-1.7 1.71h-.799v3.338h-1.4zm4.53 0h1.4v9.201h-1.4zm-3.13 1.235v3.392h.575c.354 0 .523-.171.523-.54V4.965c0-.368-.17-.54-.523-.54z" /></svg>,
+  gog: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="w-5 h-5"><path d="M7.15 15.24H4.36a.4.4 0 0 0-.4.4v2c0 .21.18.4.4.4h2.8v1.32h-3.5c-.56 0-1.02-.46-1.02-1.03v-3.39c0-.56.46-1.02 1.03-1.02h3.48v1.32zM8.16 11.54c0 .58-.47 1.05-1.05 1.05H2.63v-1.35h3.78a.4.4 0 0 0 .4-.4V6.39a.4.4 0 0 0-.4-.4H4.39a.4.4 0 0 0-.41.4v2.02c0 .23.18.4.4.4H6v1.35H3.68c-.58 0-1.05-.46-1.05-1.04V5.68c0-.57.47-1.04 1.05-1.04H7.1c.58 0 1.05.47 1.05 1.04v5.86zM21.36 19.36h-1.32v-4.12h-.93a.4.4 0 0 0-.4.4v3.72h-1.33v-4.12h-.93a.4.4 0 0 0-.4.4v3.72h-1.33v-4.42c0-.56.46-1.02 1.03-1.02h5.61v5.44zM21.37 11.54c0 .58-.47 1.05-1.05 1.05h-4.48v-1.35h3.78a.4.4 0 0 0 .4-.4V6.39a.4.4 0 0 0-.4-.4h-2.03a.4.4 0 0 0-.4.4v2.02c0 .23.18.4.4.4h1.62v1.35H16.9c-.58 0-1.05-.46-1.05-1.04V5.68c0-.57.47-1.04 1.05-1.04h3.43c.58 0 1.05.47 1.05 1.04v5.86z" /></svg>,
+  meta_quest: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="w-5 h-5"><path d="M6.915 4.03c-1.968 0-3.683 1.28-4.871 3.113C.704 9.208 0 11.883 0 14.449c0 .706.07 1.369.21 1.973a6.624 6.624 0 0 0 .265.86 5.297 5.297 0 0 0 .371.761c.696 1.159 1.818 1.927 3.593 1.927 1.497 0 2.633-.671 3.965-2.444.76-1.012 1.144-1.626 2.663-4.32l.756-1.339.186-.325c.061.1.121.196.183.3l2.152 3.595c.724 1.21 1.665 2.556 2.47 3.314 1.046.987 1.992 1.22 3.06 1.22 1.075 0 1.876-.355 2.455-.843a3.743 3.743 0 0 0 .81-.973c.542-.939.861-2.127.861-3.745 0-2.72-.681-5.357-2.084-7.45-1.282-1.912-2.957-2.93-4.716-2.93-1.047 0-2.088.467-3.053 1.308-.652.57-1.257 1.29-1.82 2.05-.69-.875-1.335-1.547-1.958-2.056-1.182-.966-2.315-1.303-3.454-1.303z" /></svg>,
+};
+
+type EditingState =
+  | { kind: "builtin"; slug: Platform }
+  | { kind: "custom"; id: number };
+
+function PlatformRow({
+  icon,
+  name,
+  badge,
+  onEdit,
+  onDelete,
+}: {
+  icon: React.ReactNode;
+  name: string;
+  badge?: string;
+  onEdit: () => void;
+  onDelete?: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20">
+      <span className="shrink-0 w-7 flex items-center justify-center text-on-surface/60">{icon}</span>
+      <span className="text-sm font-medium text-on-surface flex-1">{name}</span>
+      {badge && (
+        <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40 border border-outline-variant/30 px-2 py-0.5 rounded">
+          {badge}
+        </span>
+      )}
+      <button onClick={onEdit} className="text-on-surface/30 hover:text-on-surface transition-colors" title="Edit">
+        <span className="material-symbols-outlined text-base">edit</span>
+      </button>
+      {onDelete && (
+        <button onClick={onDelete} className="text-on-surface/30 hover:text-red-400 transition-colors" title="Remove">
+          <span className="material-symbols-outlined text-base">delete</span>
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EditRow({
+  iconValue,
+  nameValue,
+  onIconChange,
+  onNameChange,
+  onSave,
+  onCancel,
+  namePlaceholder,
+  svgPreview,
+}: {
+  iconValue: string;
+  nameValue: string;
+  onIconChange: (v: string) => void;
+  onNameChange: (v: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  namePlaceholder?: string;
+  svgPreview?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-surface-container-low border border-accent/30">
+      <IconPicker value={iconValue} onChange={onIconChange} svgPreview={svgPreview} />
+      <input
+        value={nameValue}
+        onChange={(e) => onNameChange(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancel(); }}
+        placeholder={namePlaceholder}
+        maxLength={64}
+        className="flex-1 bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-1.5 text-on-surface text-sm focus:outline-none focus:border-accent"
+        autoFocus
+      />
+      <button onClick={onSave} className="text-accent hover:text-accent/70 transition-colors">
+        <span className="material-symbols-outlined text-base">check</span>
+      </button>
+      <button onClick={onCancel} className="text-on-surface/30 hover:text-on-surface transition-colors">
+        <span className="material-symbols-outlined text-base">close</span>
+      </button>
+    </div>
+  );
+}
+
 function PlatformsPanel({ token }: { token: string }) {
   const [platforms, setPlatforms] = useState<UserPlatform[]>([]);
+  const [overrides, setOverrides] = useState<PlatformOverride[]>([]);
   const [newName, setNewName] = useState("");
+  const [newIcon, setNewIcon] = useState("");
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ text: string; ok: boolean } | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [editing, setEditing] = useState<EditingState | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editIcon, setEditIcon] = useState("");
 
   useEffect(() => {
-    api.getUserPlatforms(token).then(setPlatforms).catch(() => {});
+    Promise.all([api.getUserPlatforms(token), api.getPlatformOverrides(token)])
+      .then(([p, o]) => { setPlatforms(p); setOverrides(o); })
+      .catch(() => {});
   }, [token]);
 
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
-    const name = newName.trim();
-    if (!name) return;
-    setBusy(true);
-    setMsg(null);
+  function getOverride(slug: Platform) {
+    return overrides.find((o) => o.platform === slug) ?? null;
+  }
+
+  function startEditBuiltin(slug: Platform) {
+    const ov = getOverride(slug);
+    const bp = BUILTIN_PLATFORMS.find((p) => p.slug === slug)!;
+    setEditing({ kind: "builtin", slug });
+    setEditName(ov?.name ?? bp.label);
+    setEditIcon(ov?.icon ?? "");
+  }
+
+  async function saveEditBuiltin(slug: Platform) {
     try {
-      const p = await api.addUserPlatform(name, token);
-      setPlatforms((prev) => [...prev, { ...p, sortOrder: 0, createdAt: new Date().toISOString() }]);
-      setNewName("");
+      await api.setPlatformOverride(slug, { name: editName.trim() || null, icon: editIcon.trim() || null }, token);
+      const n = editName.trim() || null;
+      const ic = editIcon.trim() || null;
+      setOverrides((prev) => {
+        if (prev.find((o) => o.platform === slug)) return prev.map((o) => o.platform === slug ? { ...o, name: n, icon: ic } : o);
+        return [...prev, { platform: slug, name: n, icon: ic }];
+      });
+      setEditing(null);
     } catch (err) {
-      setMsg({ text: err instanceof Error ? err.message : "Failed to add platform", ok: false });
-    } finally {
-      setBusy(false);
+      setMsg(err instanceof Error ? err.message : "Failed to save");
+    }
+  }
+
+  function startEditCustom(p: UserPlatform) {
+    setEditing({ kind: "custom", id: p.id });
+    setEditName(p.name);
+    setEditIcon(p.icon ?? "");
+  }
+
+  async function saveEditCustom(id: number) {
+    const name = editName.trim();
+    if (!name) return;
+    try {
+      await api.updateUserPlatform(id, { name, icon: editIcon.trim() || null }, token);
+      setPlatforms((prev) => prev.map((p) => p.id === id ? { ...p, name, icon: editIcon.trim() || null } : p));
+      setEditing(null);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Failed to save");
     }
   }
 
@@ -292,7 +420,25 @@ function PlatformsPanel({ token }: { token: string }) {
       await api.deleteUserPlatform(id, token);
       setPlatforms((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
-      setMsg({ text: err instanceof Error ? err.message : "Failed to remove platform", ok: false });
+      setMsg(err instanceof Error ? err.message : "Failed to remove platform");
+    }
+  }
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const p = await api.addUserPlatform(name, newIcon.trim() || null, token);
+      setPlatforms((prev) => [...prev, { ...p, sortOrder: 0, createdAt: new Date().toISOString() }]);
+      setNewName("");
+      setNewIcon("");
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "Failed to add platform");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -300,75 +446,96 @@ function PlatformsPanel({ token }: { token: string }) {
     <div className="px-8 py-8">
       <h1 className="text-2xl font-black tracking-tight text-on-surface mb-1">Platforms</h1>
       <p className="text-sm text-on-surface/50 mb-8">
-        Define every platform you own games on. Built-in platforms are managed automatically via{" "}
-        <span className="text-on-surface/70">Integrations</span> or{" "}
-        <span className="text-on-surface/70">Library Imports</span>. Custom platforms are{" "}
-        <span className="text-on-surface/70">manually maintained</span> — no automatic syncing.
+        Rename any platform or give it a custom icon. Built-in platforms sync automatically;
+        custom platforms are manually maintained.
       </p>
 
-      <div className="flex flex-col gap-6 max-w-xl">
-        {/* Built-ins */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40 mb-3">Built-in</p>
-          <div className="flex flex-col gap-2">
-            {BUILTIN_PLATFORMS.map((p) => (
-              <div
-                key={p.slug}
-                className="flex items-center justify-between px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20"
-              >
-                <span className="text-sm font-medium text-on-surface">{p.label}</span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40 border border-outline-variant/30 px-2 py-0.5 rounded">
-                  {p.integration}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-col gap-2 max-w-xl mb-8">
+        {BUILTIN_PLATFORMS.map((bp) => {
+          const slug = bp.slug as Platform;
+          const ov = getOverride(slug);
+          const displayName = ov?.name ?? bp.label;
+          const svgIcon = BUILTIN_PLATFORM_ICONS[bp.slug];
+          const displayIcon = ov?.icon ? <PlatformIcon value={ov.icon} size={20} /> : svgIcon;
 
-        {/* Custom */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40 mb-3">Custom</p>
-          {platforms.length === 0 ? (
-            <p className="text-sm text-on-surface/30 mb-3">No custom platforms yet.</p>
-          ) : (
-            <div className="flex flex-col gap-2 mb-3">
-              {platforms.map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20"
-                >
-                  <span className="text-sm font-medium text-on-surface">{p.name}</span>
-                  <button
-                    onClick={() => remove(p.id)}
-                    className="text-on-surface/30 hover:text-red-400 transition-colors"
-                    title="Remove platform"
-                  >
-                    <span className="material-symbols-outlined text-sm">delete</span>
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <form onSubmit={add} className="flex gap-2">
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Nintendo Switch, PS Vita, Arcade…"
-              maxLength={64}
-              className="flex-1 bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface text-sm focus:outline-none focus:border-accent"
+          if (editing?.kind === "builtin" && editing.slug === slug) {
+            return (
+              <EditRow
+                key={bp.slug}
+                iconValue={editIcon}
+                nameValue={editName}
+                onIconChange={setEditIcon}
+                onNameChange={setEditName}
+                onSave={() => saveEditBuiltin(slug)}
+                onCancel={() => setEditing(null)}
+                namePlaceholder={bp.label}
+                svgPreview={svgIcon}
+              />
+            );
+          }
+          return (
+            <PlatformRow
+              key={bp.slug}
+              icon={displayIcon}
+              name={displayName}
+              badge={bp.integration}
+              onEdit={() => startEditBuiltin(slug)}
             />
-            <button
-              type="submit"
-              disabled={busy || !newName.trim()}
-              className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-bold hover:bg-accent-hover transition-colors disabled:opacity-50 whitespace-nowrap"
-            >
-              {busy ? "Adding…" : "Add platform"}
-            </button>
-          </form>
-          {msg && <p className={`text-xs mt-2 ${msg.ok ? "text-accent" : "text-red-400"}`}>{msg.text}</p>}
-        </div>
+          );
+        })}
+
+        {platforms.map((p) => {
+          if (editing?.kind === "custom" && editing.id === p.id) {
+            return (
+              <EditRow
+                key={p.id}
+                iconValue={editIcon}
+                nameValue={editName}
+                onIconChange={setEditIcon}
+                onNameChange={setEditName}
+                onSave={() => saveEditCustom(p.id)}
+                onCancel={() => setEditing(null)}
+                namePlaceholder={p.name}
+              />
+            );
+          }
+          return (
+            <PlatformRow
+              key={p.id}
+              icon={<PlatformIcon value={p.icon} fallback="🎮" size={20} />}
+              name={p.name}
+              onEdit={() => startEditCustom(p)}
+              onDelete={() => remove(p.id)}
+            />
+          );
+        })}
       </div>
+
+      <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40 mb-3">Add custom platform</p>
+      <form onSubmit={add} className="flex gap-2 max-w-xl">
+        <input
+          value={newIcon}
+          onChange={(e) => setNewIcon(e.target.value)}
+          placeholder="🎮"
+          maxLength={4}
+          className="w-14 bg-surface-container border border-outline-variant/40 rounded-lg px-2 py-2 text-on-surface text-sm text-center focus:outline-none focus:border-accent"
+        />
+        <input
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          placeholder="e.g. Nintendo Switch, PS Vita, Arcade…"
+          maxLength={64}
+          className="flex-1 bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface text-sm focus:outline-none focus:border-accent"
+        />
+        <button
+          type="submit"
+          disabled={busy || !newName.trim()}
+          className="px-4 py-2 rounded-lg bg-accent text-white text-sm font-bold hover:bg-accent-hover transition-colors disabled:opacity-50 whitespace-nowrap"
+        >
+          {busy ? "Adding…" : "Add"}
+        </button>
+      </form>
+      {msg && <p className="text-xs mt-2 text-red-400">{msg}</p>}
     </div>
   );
 }
@@ -901,17 +1068,19 @@ function ManualImportPanel({
   accounts,
   token,
   onChange,
+  userPlatforms,
 }: {
   accounts: PlatformAccount[];
   token: string;
   onChange: () => void;
+  userPlatforms: UserPlatform[];
 }) {
-  const [source, setSource] = useState<ImportSource>("epic");
+  const [source, setSource] = useState<string>("epic");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  function handleSourceChange(next: ImportSource) {
+  function handleSourceChange(next: string) {
     setSource(next);
     setText("");
     setMsg(null);
@@ -922,7 +1091,7 @@ function ManualImportPanel({
     setBusy(true);
     setMsg(null);
     try {
-      const res = await api.importLibrary(source, text, token);
+      const res = await api.importLibrary(source as ImportSource, text, token);
       setMsg(`Importing ${res.count} titles in the background…`);
       setText("");
       onChange();
@@ -933,18 +1102,22 @@ function ManualImportPanel({
     }
   }
 
-  const account = accounts.find((a) => a.platform === source);
+  const isBuiltin = IMPORT_SOURCES.includes(source as ImportSource);
+  const account = isBuiltin ? accounts.find((a) => a.platform === source) : undefined;
 
   return (
     <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5 max-w-2xl">
       <div className="flex items-center gap-3 mb-4">
         <select
           value={source}
-          onChange={(e) => handleSourceChange(e.target.value as ImportSource)}
+          onChange={(e) => handleSourceChange(e.target.value)}
           className="bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface text-sm focus:outline-none focus:border-accent"
         >
-          {IMPORT_SOURCES.map((src) => (
-            <option key={src} value={src}>{PLATFORM_LABELS[src as Platform]}</option>
+          {[
+            ...IMPORT_SOURCES.map((src) => ({ value: src, label: PLATFORM_LABELS[src as Platform] })),
+            ...userPlatforms.map((up) => ({ value: String(up.id), label: up.icon ? `${up.icon} ${up.name}` : up.name })),
+          ].sort((a, b) => a.label.localeCompare(b.label)).map((p) => (
+            <option key={p.value} value={p.value}>{p.label}</option>
           ))}
         </select>
         {account?.lastImportedAt && (

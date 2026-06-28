@@ -16,15 +16,16 @@ export async function userPlatformsRoutes(app: FastifyInstance) {
 
   app.get('/user-platforms', auth, async (request) => {
     const [rows] = await getPool().query<RowDataPacket[]>(
-      `SELECT id, name, slug, sort_order AS sortOrder, created_at AS createdAt
+      `SELECT id, name, icon, slug, sort_order AS sortOrder, created_at AS createdAt
        FROM user_platforms WHERE user_id = ? ORDER BY sort_order, name`,
       [userId(request)],
     );
     return rows;
   });
 
-  app.post<{ Body: { name?: string } }>('/user-platforms', auth, async (request, reply) => {
+  app.post<{ Body: { name?: string; icon?: string } }>('/user-platforms', auth, async (request, reply) => {
     const name = (request.body?.name ?? '').trim();
+    const icon = (request.body?.icon ?? '').trim() || null;
     if (!name || name.length < 1 || name.length > 64) {
       return reply.status(400).send({ error: 'name must be 1–64 characters' });
     }
@@ -34,10 +35,10 @@ export async function userPlatformsRoutes(app: FastifyInstance) {
     const uid = userId(request);
     try {
       const [res] = await getPool().query<ResultSetHeader>(
-        `INSERT INTO user_platforms (user_id, name, slug) VALUES (?, ?, ?)`,
-        [uid, name, slug],
+        `INSERT INTO user_platforms (user_id, name, icon, slug) VALUES (?, ?, ?, ?)`,
+        [uid, name, icon, slug],
       );
-      return reply.status(201).send({ id: res.insertId, name, slug });
+      return reply.status(201).send({ id: res.insertId, name, icon, slug });
     } catch (err: any) {
       if (err?.code === 'ER_DUP_ENTRY') {
         return reply.status(409).send({ error: 'A platform with that name already exists' });
@@ -46,22 +47,26 @@ export async function userPlatformsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.patch<{ Params: { id: string }; Body: { name?: string; sortOrder?: number } }>(
+  app.patch<{ Params: { id: string }; Body: { name?: string; icon?: string; sortOrder?: number } }>(
     '/user-platforms/:id',
     auth,
     async (request, reply) => {
       const id = Number(request.params.id);
       const uid = userId(request);
-      const { name, sortOrder } = request.body ?? {};
+      const { name, icon, sortOrder } = request.body ?? {};
 
       const sets: string[] = [];
-      const params: (string | number)[] = [];
+      const params: (string | number | null)[] = [];
 
-      if (name !== undefined) {
+      if (name != null) {
         const trimmed = name.trim();
         if (!trimmed || trimmed.length > 64) return reply.status(400).send({ error: 'Invalid name' });
         sets.push('name = ?', 'slug = ?');
         params.push(trimmed, toSlug(trimmed));
+      }
+      if (icon !== undefined) {
+        sets.push('icon = ?');
+        params.push(icon != null ? icon.trim() || null : null);
       }
       if (sortOrder !== undefined) {
         sets.push('sort_order = ?');

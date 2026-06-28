@@ -7,7 +7,7 @@ import { ALL_PLATFORMS, PLATFORM_LABELS, type Platform } from '../platforms';
 //  - getYearStats(userId, year): the year-in-review recap.
 
 export interface PlatformBreakdown {
-  platform: Platform;
+  platform: string;
   label: string;
   owned: number;
   playMinutes: number;
@@ -198,6 +198,20 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
       achievements: achMap.get(p) ?? 0,
     }))
     .filter(p => p.owned || p.playMinutes || p.achievements);
+
+  // Custom platforms: ownership count only (no playtime/achievements for custom platforms)
+  const [customPlatRows] = await pool.query<RowDataPacket[]>(
+    `SELECT up.name, COUNT(DISTINCT co.game_id) AS n
+       FROM custom_ownership co
+       JOIN user_platforms up ON up.id = co.platform_id
+      WHERE co.user_id = ?
+      GROUP BY up.id, up.name`,
+    [userId],
+  );
+  for (const r of customPlatRows) {
+    const n = asInt(r.n);
+    if (n > 0) byPlatform.push({ platform: `custom:${r.name as string}`, label: r.name as string, owned: n, playMinutes: 0, achievements: 0 });
+  }
 
   // ---- Per-genre (expanded in JS from the games.genres JSON) --------------
   const [genreRows] = await pool.query<RowDataPacket[]>(

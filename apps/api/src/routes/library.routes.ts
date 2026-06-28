@@ -20,6 +20,7 @@ export async function libraryRoutes(app: FastifyInstance) {
   app.get<{
     Querystring: {
       platform?: string;
+      customPlatformId?: string;
       genre?: string;
       status?: string;
       all?: string;
@@ -29,7 +30,7 @@ export async function libraryRoutes(app: FastifyInstance) {
     };
   }>('/library', auth, async (request, reply) => {
     const uid = userId(request);
-    const { platform, genre, status, all, hidden, vr, q } = request.query;
+    const { platform, customPlatformId, genre, status, all, hidden, vr, q } = request.query;
 
     const VALID_PLATFORMS: string[] = ALL_PLATFORMS;
     const VALID_STATUSES = ['unplayed', 'playing', 'completed', 'other'];
@@ -70,15 +71,13 @@ export async function libraryRoutes(app: FastifyInstance) {
       FROM games g
       LEFT JOIN game_status gs ON gs.user_id = ? AND gs.game_id = g.id
       WHERE (
-        /* Owned */
         EXISTS (SELECT 1 FROM ownership o WHERE o.user_id = ? AND o.game_id = g.id)
-        OR
-        /* Has playtime */
-        EXISTS (SELECT 1 FROM playtime_totals pt WHERE pt.user_id = ? AND pt.game_id = g.id)
+        OR EXISTS (SELECT 1 FROM playtime_totals pt WHERE pt.user_id = ? AND pt.game_id = g.id)
+        OR EXISTS (SELECT 1 FROM custom_ownership co WHERE co.user_id = ? AND co.game_id = g.id)
       )
     `;
 
-    const params: (string | number)[] = [uid, uid, uid, uid, uid];
+    const params: (string | number)[] = [uid, uid, uid, uid, uid, uid];
 
     if (showHidden) {
       // Show ONLY hidden games
@@ -109,6 +108,13 @@ export async function libraryRoutes(app: FastifyInstance) {
     if (platform) {
       sql += ` AND EXISTS (SELECT 1 FROM ownership op WHERE op.user_id = ? AND op.game_id = g.id AND op.platform = ?)`;
       params.push(uid, platform);
+    }
+
+    if (customPlatformId) {
+      const cpId = Number(customPlatformId);
+      if (!Number.isInteger(cpId) || cpId <= 0) return reply.status(400).send({ error: 'Invalid customPlatformId' });
+      sql += ` AND EXISTS (SELECT 1 FROM custom_ownership co WHERE co.user_id = ? AND co.game_id = g.id AND co.platform_id = ?)`;
+      params.push(uid, cpId);
     }
 
     if (genre) {

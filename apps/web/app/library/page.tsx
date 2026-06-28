@@ -3,17 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { api, type LibraryGame, type GameStatus, type Platform } from "@/lib/api";
+import { api, type LibraryGame, type GameStatus, type Platform, type UserPlatform } from "@/lib/api";
 import { CoverGrid } from "@/components/cover-grid";
 
 export const dynamic = "force-dynamic";
 
-const PLATFORMS: { value: Platform | ""; label: string }[] = [
-  { value: "", label: "All Platforms" },
+const BUILTIN_PLATFORMS: { value: Platform; label: string }[] = [
   { value: "steam", label: "Steam" },
   { value: "psn", label: "PlayStation" },
   { value: "xbox", label: "Xbox / Game Pass" },
-  { value: "epic", label: "Epic" },
+  { value: "epic", label: "Epic Games" },
   { value: "gog", label: "GOG" },
   { value: "meta_quest", label: "Meta Quest" },
 ];
@@ -32,7 +31,10 @@ export default function LibraryPage() {
   const { token, isLoading } = useAuth();
   const [games, setGames] = useState<LibraryGame[]>([]);
   const [loading, setLoading] = useState(true);
-  const [platform, setPlatform] = useState<Platform | "">((searchParams.get("platform") as Platform) || "");
+  const [userPlatforms, setUserPlatforms] = useState<UserPlatform[]>([]);
+
+  // platform filter: "steam" etc. for built-ins, "custom:123" for user platforms
+  const [platform, setPlatform] = useState<string>(searchParams.get("platform") || "");
   const [status, setStatus] = useState<GameStatus | "">((searchParams.get("status") as GameStatus) || "");
   const [showAll, setShowAll] = useState(searchParams.get("show") !== "active");
   const [showHidden, setShowHidden] = useState(searchParams.get("hidden") === "1");
@@ -53,9 +55,18 @@ export default function LibraryPage() {
 
   useEffect(() => {
     if (!token) return;
+    api.getUserPlatforms(token).then(setUserPlatforms).catch(() => {});
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
     setLoading(true);
+    const isCustom = platform.startsWith("custom:");
+    const customPlatformId = isCustom ? Number(platform.slice(7)) : undefined;
+    const builtinPlatform = !isCustom && platform ? (platform as Platform) : undefined;
     api.getLibrary(token, {
-      ...(platform ? { platform } : {}),
+      ...(builtinPlatform ? { platform: builtinPlatform } : {}),
+      ...(customPlatformId ? { customPlatformId } : {}),
       ...(status ? { status } : {}),
       ...(showAll && !showHidden ? { all: true } : {}),
       ...(showHidden ? { hidden: true } : {}),
@@ -80,13 +91,17 @@ export default function LibraryPage() {
             <select
               value={platform}
               onChange={(e) => {
-                const v = e.target.value as Platform | "";
+                const v = e.target.value;
                 setPlatform(v);
                 updateUrl({ platform: v || null });
               }}
               className="bg-surface-container border border-outline-variant/40 rounded-lg px-3 py-2 text-on-surface text-sm focus:outline-none focus:border-accent transition-colors"
             >
-              {PLATFORMS.map((p) => (
+              <option value="">All Platforms</option>
+              {[
+                ...BUILTIN_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
+                ...userPlatforms.map((up) => ({ value: `custom:${up.id}`, label: up.icon ? `${up.icon} ${up.name}` : up.name })),
+              ].sort((a, b) => a.label.localeCompare(b.label)).map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
               ))}
             </select>

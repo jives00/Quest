@@ -100,6 +100,7 @@ export interface GameDetail {
   rating: number | null;
   notes: string | null;
   ownership: string[];
+  customOwnership: number[];
   lists: number[];
   // --- Enrichment fields ---
   steamAppId: string | null;
@@ -238,6 +239,12 @@ export async function getGameDetail(userId: number, gameId: number): Promise<Gam
   );
   const ownership = ownRows.map(r => r.platform as string);
 
+  const [customOwnRows] = await pool.query<RowDataPacket[]>(
+    `SELECT platform_id FROM custom_ownership WHERE user_id = ? AND game_id = ?`,
+    [userId, gameId],
+  );
+  const customOwnership = customOwnRows.map(r => r.platform_id as number);
+
   // List membership (system + custom via list_items; platform lists derived from ownership)
   const [listRows] = await pool.query<RowDataPacket[]>(
     `SELECT l.id, l.name, l.slug, l.kind
@@ -296,6 +303,7 @@ export async function getGameDetail(userId: number, gameId: number): Promise<Gam
     rating,
     notes,
     ownership,
+    customOwnership,
     lists,
     // enrichment
     steamAppId: (g.steam_app_id as string | null) ?? null,

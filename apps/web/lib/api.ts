@@ -161,6 +161,7 @@ export interface GameDetail {
   rating: number | null;
   notes: string | null;
   ownership: Platform[];
+  customOwnership: number[];
   lists: number[];
   // --- Enrichment fields ---
   steamAppId: string | null;
@@ -278,7 +279,7 @@ export interface StatsOverview {
 }
 
 export interface PlatformBreakdown {
-  platform: Platform;
+  platform: string;
   label: string;
   owned: number;
   playMinutes: number;
@@ -440,9 +441,16 @@ export interface ProvisionalMatch {
   externalId: string;
 }
 
+export interface PlatformOverride {
+  platform: Platform;
+  name: string | null;
+  icon: string | null;
+}
+
 export interface UserPlatform {
   id: number;
   name: string;
+  icon: string | null;
   slug: string;
   sortOrder: number;
   createdAt: string;
@@ -555,9 +563,10 @@ export const api = {
     request<UpcomingGame[]>("/api/dashboard/upcoming", { token, signal }),
 
   // ── Library ─────────────────────────────────────────────────────────────
-  getLibrary: (token: string, params?: { platform?: string; genre?: string; status?: string; all?: boolean; hidden?: boolean; vr?: boolean; q?: string }, signal?: AbortSignal) => {
+  getLibrary: (token: string, params?: { platform?: string; customPlatformId?: number; genre?: string; status?: string; all?: boolean; hidden?: boolean; vr?: boolean; q?: string }, signal?: AbortSignal) => {
     const qs = new URLSearchParams();
     if (params?.platform) qs.set("platform", params.platform);
+    if (params?.customPlatformId) qs.set("customPlatformId", String(params.customPlatformId));
     if (params?.genre) qs.set("genre", params.genre);
     if (params?.status) qs.set("status", params.status);
     if (params?.all) qs.set("all", "1");
@@ -616,6 +625,10 @@ export const api = {
     request<void>("/api/ownership", { method: "POST", body: JSON.stringify({ gameId, platform }), token }),
   removeOwnership: (gameId: number, platform: Platform, token: string) =>
     request<void>(`/api/ownership/${gameId}/${platform}`, { method: "DELETE", token }),
+  addCustomOwnership: (gameId: number, platformId: number, token: string) =>
+    request<void>("/api/custom-ownership", { method: "POST", body: JSON.stringify({ gameId, platformId }), token }),
+  removeCustomOwnership: (gameId: number, platformId: number, token: string) =>
+    request<void>(`/api/custom-ownership/${gameId}/${platformId}`, { method: "DELETE", token }),
 
   // ── Lists ───────────────────────────────────────────────────────────────
   getLists: (token: string, signal?: AbortSignal) =>
@@ -726,9 +739,18 @@ export const api = {
   // ── User Platforms ───────────────────────────────────────────────────────
   getUserPlatforms: (token: string) =>
     request<UserPlatform[]>("/api/user-platforms", { token }),
-  addUserPlatform: (name: string, token: string) =>
-    request<{ id: number; name: string; slug: string }>("/api/user-platforms", {
-      method: "POST", body: JSON.stringify({ name }), token,
+  getPlatformOverrides: (token: string) =>
+    request<PlatformOverride[]>("/api/platform-overrides", { token }),
+  setPlatformOverride: (platform: Platform, patch: { name?: string | null; icon?: string | null }, token: string) =>
+    request<{ updated: boolean }>(`/api/platform-overrides/${platform}`, { method: "PUT", body: JSON.stringify(patch), token }),
+
+  addUserPlatform: (name: string, icon: string | null, token: string) =>
+    request<{ id: number; name: string; icon: string | null; slug: string }>("/api/user-platforms", {
+      method: "POST", body: JSON.stringify({ name, icon }), token,
+    }),
+  updateUserPlatform: (id: number, patch: { name?: string; icon?: string | null }, token: string) =>
+    request<{ updated: boolean }>(`/api/user-platforms/${id}`, {
+      method: "PATCH", body: JSON.stringify(patch), token,
     }),
   deleteUserPlatform: (id: number, token: string) =>
     request<{ deleted: boolean }>(`/api/user-platforms/${id}`, { method: "DELETE", token }),

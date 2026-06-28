@@ -83,3 +83,35 @@ export async function importLibrary(
   await markImported(userId, source);
   return result;
 }
+
+export async function importCustomLibrary(
+  userId: number,
+  platformId: number,
+  items: ImportItem[],
+): Promise<{ imported: number; skipped: number }> {
+  const pool = getPool();
+  let imported = 0;
+  let skipped = 0;
+
+  for (const item of items) {
+    const title = item.title?.trim();
+    if (!title) { skipped++; continue; }
+
+    const externalId = item.externalId?.trim() || `title:${title.toLowerCase()}`;
+    const resolved = await resolveExternalId({
+      source: 'epic',
+      externalId,
+      title,
+      platformId: undefined,
+    });
+    if (!resolved) { skipped++; continue; }
+
+    await pool.query(
+      `INSERT IGNORE INTO custom_ownership (user_id, game_id, platform_id) VALUES (?, ?, ?)`,
+      [userId, resolved.gameId, platformId],
+    );
+    imported++;
+  }
+
+  return { imported, skipped };
+}

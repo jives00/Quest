@@ -1,0 +1,2 @@
+ALTER TABLE user_platforms MODIFY COLUMN icon VARCHAR(64) NULL;
+ALTER TABLE user_platform_overrides MODIFY COLUMN icon VARCHAR(64) NULL;

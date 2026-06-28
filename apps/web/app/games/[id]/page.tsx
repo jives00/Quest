@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { PlatformIcon } from "@/components/icon-picker/render";
 import {
   api,
   type GameDetail,
@@ -11,6 +12,8 @@ import {
   type Achievement,
   type QuestList,
   type WishlistPrice,
+  type UserPlatform,
+  type PlatformOverride,
 } from "@/lib/api";
 import { StatusSelector } from "@/components/status-badge";
 import { GameMetadataEditor } from "@/components/game-metadata-editor";
@@ -194,6 +197,8 @@ export default function GameDetailPage() {
   const { token, isLoading } = useAuth();
   const [game, setGame] = useState<GameDetail | null>(null);
   const [lists, setLists] = useState<QuestList[]>([]);
+  const [userPlatforms, setUserPlatforms] = useState<UserPlatform[]>([]);
+  const [platformOverrides, setPlatformOverrides] = useState<PlatformOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -236,11 +241,13 @@ export default function GameDetailPage() {
   useEffect(() => {
     if (!token || !params.id) return;
     const id = parseInt(params.id, 10);
-    Promise.all([api.getGame(id, token), api.getLists(token)])
-      .then(([g, ls]) => {
+    Promise.all([api.getGame(id, token), api.getLists(token), api.getUserPlatforms(token), api.getPlatformOverrides(token)])
+      .then(([g, ls, up, ov]) => {
         setGame(g);
         setRatingInput(g.rating);
         setLists(ls);
+        setUserPlatforms(up);
+        setPlatformOverrides(ov);
       })
       .catch((err: unknown) => setError((err instanceof Error ? err.message : null) ?? "Failed to load game."))
       .finally(() => setLoading(false));
@@ -307,6 +314,21 @@ export default function GameDetailPage() {
       }
     } catch (err) {
       console.error("Ownership toggle error:", err);
+    }
+  }, [token, game]);
+
+  const handleCustomOwnershipToggle = useCallback(async (platformId: number, owns: boolean) => {
+    if (!token || !game) return;
+    try {
+      if (owns) {
+        await api.removeCustomOwnership(game.id, platformId, token);
+        setGame((prev) => prev ? { ...prev, customOwnership: prev.customOwnership.filter((id) => id !== platformId) } : prev);
+      } else {
+        await api.addCustomOwnership(game.id, platformId, token);
+        setGame((prev) => prev ? { ...prev, customOwnership: [...prev.customOwnership, platformId] } : prev);
+      }
+    } catch (err) {
+      console.error("Custom ownership toggle error:", err);
     }
   }, [token, game]);
 
@@ -909,27 +931,44 @@ export default function GameDetailPage() {
             <div className="flex flex-wrap gap-2">
               {ALL_PLATFORMS.map((plat) => {
                 const owns = game.ownership.includes(plat);
+                const ov = platformOverrides.find((o) => o.platform === plat);
+                const defaultIcon = (() => {
+                  if (plat === "steam") return <SteamIcon className="w-5 h-5" />;
+                  if (plat === "psn") return <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden><path d="M8.985 2.596v17.548l3.915 1.261V6.688c0-.69.304-1.151.794-.998.636.19.762.84.762 1.529v5.372c2.689 1.088 4.718-.169 4.718-3.53 0-3.44-1.194-4.988-4.688-6.076 0 0-3.037-.987-5.501-.389zM7.641 20.26c-2.69.239-4.73-1.075-4.73-2.963 0-1.79 1.567-3.272 4.33-3.862v2.01c-1.213.353-2.148.965-2.148 1.894 0 .995 1.002 1.494 2.548 1.214v1.707z"/></svg>;
+                  if (plat === "xbox") return <XboxIcon className="w-5 h-5" />;
+                  if (plat === "epic") return <EpicIcon className="w-5 h-5" />;
+                  if (plat === "gog") return <GogIcon className="w-5 h-5" />;
+                  if (plat === "meta_quest") return <MetaIcon className="w-5 h-5" />;
+                })();
                 return (
                   <button
                     key={plat}
                     onClick={() => handleOwnershipToggle(plat, owns)}
-                    title={PLATFORM_LABELS[plat]}
+                    title={ov?.name ?? PLATFORM_LABELS[plat]}
                     className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors border ${
                       owns
                         ? "bg-accent/20 text-accent border-accent/30"
                         : "bg-surface-container text-on-surface/40 border-outline-variant/30 hover:text-on-surface hover:border-outline-variant/60"
                     }`}
                   >
-                    {plat === "steam" && <SteamIcon className="w-5 h-5" />}
-                    {plat === "psn" && (
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5" aria-hidden>
-                        <path d="M8.985 2.596v17.548l3.915 1.261V6.688c0-.69.304-1.151.794-.998.636.19.762.84.762 1.529v5.372c2.689 1.088 4.718-.169 4.718-3.53 0-3.44-1.194-4.988-4.688-6.076 0 0-3.037-.987-5.501-.389zM7.641 20.26c-2.69.239-4.73-1.075-4.73-2.963 0-1.79 1.567-3.272 4.33-3.862v2.01c-1.213.353-2.148.965-2.148 1.894 0 .995 1.002 1.494 2.548 1.214v1.707z"/>
-                      </svg>
-                    )}
-                    {plat === "xbox" && <XboxIcon className="w-5 h-5" />}
-                    {plat === "epic" && <EpicIcon className="w-5 h-5" />}
-                    {plat === "gog" && <GogIcon className="w-5 h-5" />}
-                    {plat === "meta_quest" && <MetaIcon className="w-5 h-5" />}
+                    {ov?.icon ? <PlatformIcon value={ov.icon} size={20} /> : defaultIcon}
+                  </button>
+                );
+              })}
+              {userPlatforms.map((up) => {
+                const owns = game.customOwnership.includes(up.id);
+                return (
+                  <button
+                    key={up.id}
+                    onClick={() => handleCustomOwnershipToggle(up.id, owns)}
+                    title={up.name}
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors border ${
+                      owns
+                        ? "bg-accent/20 text-accent border-accent/30"
+                        : "bg-surface-container text-on-surface/40 border-outline-variant/30 hover:text-on-surface hover:border-outline-variant/60"
+                    }`}
+                  >
+                    <PlatformIcon value={up.icon} fallback={<span className="text-xs font-bold">{up.name.slice(0, 2).toUpperCase()}</span>} size={20} />
                   </button>
                 );
               })}

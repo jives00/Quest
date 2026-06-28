@@ -26,6 +26,8 @@ import { discoverRoutes } from './routes/discover.routes';
 import { accountRoutes } from './routes/account.routes';
 import { exportRoutes } from './routes/export.routes';
 import { userPlatformsRoutes } from './routes/user-platforms.routes';
+import { customOwnershipRoutes } from './routes/custom-ownership.routes';
+import { platformOverridesRoutes } from './routes/platform-overrides.routes';
 import { appVersionRoutes } from './routes/app-version.routes';
 
 export function buildApp(): FastifyInstance {
@@ -77,6 +79,8 @@ export function buildApp(): FastifyInstance {
   void app.register(accountRoutes, { prefix: '/api' });
   void app.register(exportRoutes, { prefix: '/api' });
   void app.register(userPlatformsRoutes, { prefix: '/api' });
+  void app.register(customOwnershipRoutes, { prefix: '/api' });
+  void app.register(platformOverridesRoutes, { prefix: '/api' });
   void app.register(appVersionRoutes, { prefix: '/api' });
 
   return app;
