@@ -7,14 +7,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  TextInput,
   Switch,
 } from "react-native";
 import { Image } from "expo-image";
 import { useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
-import { api } from "../lib/api";
+import { api, PLATFORM_LABELS } from "../lib/api";
 import type { GameDetail, GameStatus, Platform, Achievement } from "../lib/api";
 import { imgUrl } from "../lib/img";
 import { formatMinutes, formatDate } from "../lib/format";
@@ -44,9 +43,6 @@ export default function GameDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [savingStatus, setSavingStatus] = useState(false);
   const [savingRating, setSavingRating] = useState(false);
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesText, setNotesText] = useState("");
-  const [savingNotes, setSavingNotes] = useState(false);
   const [togglingHidden, setTogglingHidden] = useState(false);
   const [togglingVr, setTogglingVr] = useState(false);
   const [togglingWishlist, setTogglingWishlist] = useState(false);
@@ -65,7 +61,6 @@ export default function GameDetailScreen() {
     if (!token) return;
     const data = await api.getGame(gameId, token);
     setGame(data);
-    setNotesText(data.notes ?? "");
   }, [token, gameId]);
 
   useEffect(() => {
@@ -104,24 +99,6 @@ export default function GameDetailScreen() {
       Alert.alert("Error", "Failed to update rating.");
     } finally {
       setSavingRating(false);
-    }
-  }
-
-  async function handleSaveNotes() {
-    if (!token) return;
-    setSavingNotes(true);
-    try {
-      if (notesText.trim()) {
-        await api.setNotes(gameId, notesText.trim(), token);
-      } else {
-        await api.clearNotes(gameId, token);
-      }
-      setEditingNotes(false);
-      await load();
-    } catch {
-      Alert.alert("Error", "Failed to save notes.");
-    } finally {
-      setSavingNotes(false);
     }
   }
 
@@ -276,43 +253,6 @@ export default function GameDetailScreen() {
         </View>
         {game.rating && (
           <Text style={s.ratingCurrent}>Your rating: {game.rating}/10</Text>
-        )}
-      </View>
-
-      {/* Notes */}
-      <View style={s.section}>
-        <View style={s.sectionHeaderRow}>
-          <SectionHeader title="Notes" />
-          <TouchableOpacity onPress={() => setEditingNotes(!editingNotes)}>
-            <Text style={s.editLink}>{editingNotes ? "Cancel" : "Edit"}</Text>
-          </TouchableOpacity>
-        </View>
-        {editingNotes ? (
-          <View style={s.notesEdit}>
-            <TextInput
-              style={s.notesInput}
-              value={notesText}
-              onChangeText={setNotesText}
-              multiline
-              placeholder="Add notes…"
-              placeholderTextColor="#666"
-            />
-            <TouchableOpacity
-              style={s.saveBtn}
-              onPress={handleSaveNotes}
-              disabled={savingNotes}
-            >
-              {savingNotes ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={s.saveBtnText}>Save</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <Text style={s.notesText}>
-            {game.notes || "No notes yet."}
-          </Text>
         )}
       </View>
 
@@ -495,7 +435,7 @@ export default function GameDetailScreen() {
       {game.ownership.length > 0 && (
         <View style={s.section}>
           <SectionHeader title="Owned On" />
-          <Text style={s.infoText}>{game.ownership.join(", ")}</Text>
+          <Text style={s.infoText}>{game.ownership.map((p) => PLATFORM_LABELS[p] ?? p).join(", ")}</Text>
         </View>
       )}
     </ScrollView>
@@ -626,9 +566,9 @@ const s = StyleSheet.create({
   statusChipText: { color: "#888", fontSize: 13 },
   statusChipTextActive: { color: "#fff", fontWeight: "700" },
 
-  ratingRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  ratingRow: { flexDirection: "row", gap: 4 },
   ratingBtn: {
-    width: 34,
+    flex: 1,
     height: 34,
     borderRadius: 6,
     backgroundColor: "#1e2029",

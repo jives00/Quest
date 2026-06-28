@@ -229,8 +229,8 @@ const s = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.08)",
   },
 
-  filterScroll: { height: 56, marginBottom: 8 },
-  filterRow: { paddingHorizontal: 16, gap: 8, alignItems: "center" },
+  filterScroll: { height: 56, marginBottom: 8, flexGrow: 0, flexShrink: 0 },
+  filterRow: { paddingHorizontal: 16, gap: 8, alignItems: "center", height: 56 },
   filterChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -247,9 +247,9 @@ const s = StyleSheet.create({
   filterChipTextActive: { color: "#fff", fontWeight: "700" },
   filterDivider: {
     width: 1,
+    height: 20,
     marginHorizontal: 4,
     backgroundColor: "rgba(255,255,255,0.12)",
-    alignSelf: "stretch",
   },
 
   center: { flex: 1, justifyContent: "center", alignItems: "center" },

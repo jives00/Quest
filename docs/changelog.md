@@ -26,6 +26,10 @@
 
 ### Frontend – Mobile
 - App icon updated: 1024×1024, transparent background with added padding `3ed2486`
+- Library: filter chips no longer shift position or stretch on initial load — constrained height from first render `1e7f3b4`
+- Game detail: removed Notes section `1e7f3b4`
+- Game detail: rating buttons now fit on a single row using flex layout `1e7f3b4`
+- Game detail: Owned On now shows display names (e.g. "PlayStation" not "psn") matching Settings labels `1e7f3b4`
 
 ### Backend
 - Custom platforms (`user_platforms`) fully wired: ownership on game detail, library filter, imports dropdown, stats breakdown `ba980ba`
