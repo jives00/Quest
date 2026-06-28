@@ -47,6 +47,7 @@ export function GameCompletionsCard({ gameId, token, status, refreshKey }: Props
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
         setShowDatePicker(false);
+        setPickedDate("");
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -69,19 +70,18 @@ export function GameCompletionsCard({ gameId, token, status, refreshKey }: Props
     }
   }
 
-  async function handleAddPicked() {
-    if (!pickedDate) return;
+  async function handleAddPickedValue(date: string) {
     setDropdownOpen(false);
     setShowDatePicker(false);
+    setPickedDate("");
     setAdding(true);
     try {
-      const entry = await api.addCompletion(gameId, pickedDate + "T12:00:00", token);
+      const entry = await api.addCompletion(gameId, date + "T12:00:00", token);
       setCompletions((prev) => [entry, ...prev].sort((a, b) => b.completedAt.localeCompare(a.completedAt)));
     } catch {
       /* ignore */
     } finally {
       setAdding(false);
-      setPickedDate("");
     }
   }
 
@@ -127,21 +127,18 @@ export function GameCompletionsCard({ gameId, token, status, refreshKey }: Props
                   Pick date…
                 </button>
               ) : (
-                <div className="px-4 py-2.5 flex flex-col gap-2">
+                <div className="px-4 py-2.5">
                   <input
                     type="date"
                     value={pickedDate}
                     max={new Date().toISOString().slice(0, 10)}
-                    onChange={(e) => setPickedDate(e.target.value)}
+                    onChange={(e) => {
+                      setPickedDate(e.target.value);
+                      if (e.target.value) handleAddPickedValue(e.target.value);
+                    }}
                     className="w-full bg-surface-container-high border border-outline-variant/40 rounded px-2 py-1 text-sm text-on-surface focus:outline-none focus:border-accent"
+                    autoFocus
                   />
-                  <button
-                    disabled={!pickedDate}
-                    onClick={handleAddPicked}
-                    className="w-full rounded-lg bg-accent text-white text-xs font-bold py-1.5 disabled:opacity-40 hover:bg-accent/90 transition-colors"
-                  >
-                    Confirm
-                  </button>
                 </div>
               )}
             </div>

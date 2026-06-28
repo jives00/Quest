@@ -3,6 +3,7 @@
 ## June 28, 2026
 
 ### Frontend – Web
+- Game detail: completion date picker now auto-saves on date select — no Confirm button needed; fixes native date popup closing dropdown before save `893b5a9`
 - Settings › Platforms: unified editable list for built-in and custom platforms; built-ins renameable with icon override; custom platforms support inline name/icon editing and delete `ba980ba`
 - Icon picker: URL input popover with live image preview; `PlatformIcon` component renders URL as `<img>` or emoji as text `ba980ba`
 - Library: platform filter is a flat alpha-sorted list including custom platforms `ba980ba`
