@@ -493,11 +493,51 @@ export function cancelAllRequests(): void {
   activeControllers.clear();
 }
 
+// ─── Auth refresh / 401 retry ───────────────────────────────────────────────
+
+const AUTH_NO_RETRY_PATHS = new Set(["/api/auth/login", "/api/auth/refresh"]);
+
+interface AuthHandlers {
+  onTokenRefreshed?: (accessToken: string) => void;
+  onAuthFailure?: () => void;
+}
+
+let authHandlers: AuthHandlers = {};
+
+export function setAuthHandlers(handlers: AuthHandlers): void {
+  authHandlers = handlers;
+}
+
+let refreshPromise: Promise<string> | null = null;
+
+/**
+ * Performs a silent token refresh, deduping concurrent callers onto a single
+ * in-flight request. Resolves with the new access token; rejects (and
+ * notifies onAuthFailure) if the refresh token is no longer valid.
+ */
+export function refreshAccessToken(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = request<{ accessToken: string }>("/api/auth/refresh", { method: "POST" })
+      .then((res) => {
+        authHandlers.onTokenRefreshed?.(res.accessToken);
+        return res.accessToken;
+      })
+      .catch((err) => {
+        authHandlers.onAuthFailure?.();
+        throw err;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 async function request<T>(
   path: string,
-  options: RequestInit & { token?: string; signal?: AbortSignal } = {}
+  options: RequestInit & { token?: string; signal?: AbortSignal; _isRetry?: boolean } = {}
 ): Promise<T> {
-  const { token, signal, ...init } = options;
+  const { token, signal, _isRetry, ...init } = options;
   const headers = new Headers(init.headers);
   if (init.body) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -505,6 +545,17 @@ async function request<T>(
   try {
     const res = await fetch(`${BASE}${path}`, { ...init, headers, credentials: "include", signal });
     if (!res.ok) {
+      if (res.status === 401 && !_isRetry && token && !AUTH_NO_RETRY_PATHS.has(path)) {
+        let newToken: string | undefined;
+        try {
+          newToken = await refreshAccessToken();
+        } catch {
+          // Refresh failed; fall through and surface the original 401.
+        }
+        if (newToken) {
+          return request<T>(path, { ...options, token: newToken, _isRetry: true });
+        }
+      }
       const body = await res.json().catch(() => ({}));
       throw new ApiError(res.status, (body as { error?: string }).error ?? res.statusText);
     }

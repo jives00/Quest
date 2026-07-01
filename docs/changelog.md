@@ -1,5 +1,16 @@
 # Changelog
 
+## June 30, 2026
+
+### Frontend – Web
+- Fix premature logout: `request()` now retries once on 401 via a deduped, refresh-and-retry interceptor instead of failing permanently after the 15-minute access token expires `0572dde`
+- Remove the "refresh once" guard; add a proactive 10-minute refresh timer in `auth-context.tsx` so the access token renews before it expires `0572dde`
+
+### Frontend – Mobile
+- Fix premature logout: same 401 retry interceptor and proactive 10-minute refresh timer as web `0572dde`
+- Add `AppState` foreground listener so the access token refreshes when the app resumes from background, debounced to avoid redundant calls `0572dde`
+- Adaptive icon art updated `0572dde`
+
 ## June 28, 2026
 
 ### Frontend – Web

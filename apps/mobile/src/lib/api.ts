@@ -332,19 +332,77 @@ export class ApiError extends Error {
   }
 }
 
+// ─── Auth refresh / 401 retry ───────────────────────────────────────────────
+
+const AUTH_NO_RETRY_PATHS = new Set(["/api/auth/login", "/api/auth/refresh"]);
+
+interface AuthHandlers {
+  getRefreshToken?: () => Promise<string | null>;
+  onTokenRefreshed?: (accessToken: string) => void;
+  onAuthFailure?: () => void;
+}
+
+let authHandlers: AuthHandlers = {};
+
+export function setAuthHandlers(handlers: AuthHandlers): void {
+  authHandlers = handlers;
+}
+
+let refreshPromise: Promise<string> | null = null;
+
+/**
+ * Performs a silent token refresh, deduping concurrent callers onto a single
+ * in-flight request. Resolves with the new access token; rejects (and
+ * notifies onAuthFailure) if there's no stored refresh token, or it's no
+ * longer valid.
+ */
+export function refreshAccessToken(): Promise<string> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const stored = await authHandlers.getRefreshToken?.();
+      if (!stored) throw new ApiError(401, "No refresh token available");
+      const res = await request<{ accessToken: string }>("/api/auth/refresh", {
+        method: "POST",
+        body: JSON.stringify({ refreshToken: stored }),
+      });
+      authHandlers.onTokenRefreshed?.(res.accessToken);
+      return res.accessToken;
+    })()
+      .catch((err) => {
+        authHandlers.onAuthFailure?.();
+        throw err;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+  return refreshPromise;
+}
+
 // ─── Core request helper ──────────────────────────────────────────────────────
 
 async function request<T>(
   path: string,
-  options: RequestInit & { token?: string } = {}
+  options: RequestInit & { token?: string; _isRetry?: boolean } = {}
 ): Promise<T> {
-  const { token, ...init } = options;
+  const { token, _isRetry, ...init } = options;
   const headers = new Headers(init.headers as HeadersInit);
   if (init.body) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!res.ok) {
+    if (res.status === 401 && !_isRetry && token && !AUTH_NO_RETRY_PATHS.has(path)) {
+      let newToken: string | undefined;
+      try {
+        newToken = await refreshAccessToken();
+      } catch {
+        // Refresh failed; fall through and surface the original 401.
+      }
+      if (newToken) {
+        return request<T>(path, { ...options, token: newToken, _isRetry: true });
+      }
+    }
     const body = await res.json().catch(() => ({}));
     throw new ApiError(
       res.status,
