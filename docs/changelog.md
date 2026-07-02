@@ -1,5 +1,13 @@
 # Changelog
 
+## July 1, 2026
+
+### Frontend – Web
+- Session middleware checks `quest_refreshToken` cookie instead of generic `refreshToken` `d196e0d`
+
+### Backend
+- Fix refresh-token cookie collision with Trakt: both apps share the `synology` Tailscale hostname (differ only by port), and cookies are scoped by hostname+path not port, so the shared `refreshToken` cookie name caused each app's login to silently overwrite the other's session cookie, producing spurious "Invalid or expired refresh token" logouts; renamed to `quest_refreshToken` `d196e0d`
+
 ## June 30, 2026
 
 ### Frontend – Web

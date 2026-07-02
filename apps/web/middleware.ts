@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) return;
 
-  const hasSession = request.cookies.has("refreshToken");
+  const hasSession = request.cookies.has("quest_refreshToken");
   if (!hasSession) {
     return NextResponse.redirect(new URL("/login", request.url));
   }

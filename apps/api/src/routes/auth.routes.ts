@@ -10,7 +10,7 @@ import {
   deleteRefreshToken,
 } from '../services/auth.service';
 
-const COOKIE = 'refreshToken';
+const COOKIE = 'quest_refreshToken';
 
 export async function authRoutes(app: FastifyInstance) {
   void app.register(rateLimitPlugin, {
