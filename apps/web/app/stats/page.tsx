@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Gamepad2, Trophy, CheckCircle2, Tag, Star, Bookmark, Clock, Package } from "lucide-react";
+import { Gamepad2, Trophy, Star, CheckCircle2 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -13,6 +13,7 @@ import {
   api,
   type Stats, type YearStats, type ActivityEvent,
 } from "@/lib/api";
+import { ACTIVITY_ICONS, ACTIVITY_COLORS } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -152,26 +153,6 @@ function ChartTooltip({ active, payload, label, suffix = "" }: {
 }
 
 // ─── Activity feed ────────────────────────────────────────────────────────────
-
-const ACTIVITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  session: Gamepad2,
-  achievement: Trophy,
-  completion: CheckCircle2,
-  status: Tag,
-  wishlist: Bookmark,
-  backlog: Clock,
-  ownership: Package,
-};
-
-const ACTIVITY_COLORS: Record<string, string> = {
-  session: "text-blue-400",
-  achievement: "text-yellow-400",
-  completion: "text-green-400",
-  status: "text-purple-400",
-  wishlist: "text-pink-400",
-  backlog: "text-orange-400",
-  ownership: "text-cyan-400",
-};
 
 function ActivityFeed({ events }: { events: ActivityEvent[] }) {
   if (!events.length) {
@@ -348,7 +329,12 @@ function Lifetime({ token }: { token: string }) {
       <div className="grid md:grid-cols-2 gap-8 items-start">
         {/* Left: activity feed */}
         <div>
-          <SectionHeader>Recent Activity</SectionHeader>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-on-surface">Recent Activity</h2>
+            <Link href="/history" className="text-sm font-medium text-accent hover:underline">
+              View All
+            </Link>
+          </div>
           <Card>
             <ActivityFeed events={activity} />
           </Card>

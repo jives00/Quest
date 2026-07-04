@@ -1,6 +1,11 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { authenticate } from '../middleware/auth';
-import { getStats, getYearStats, getAvailableYears, getRecentActivity } from '../services/stats.service';
+import {
+  getStats, getYearStats, getAvailableYears, getRecentActivity, getActivityPage,
+  type ActivityEventType,
+} from '../services/stats.service';
+
+const ACTIVITY_TYPES: ActivityEventType[] = ['session', 'achievement', 'completion', 'status', 'wishlist', 'backlog', 'ownership'];
 
 function userId(request: FastifyRequest): number {
   return (request.user as { sub: number }).sub;
@@ -29,4 +34,28 @@ export async function statsRoutes(app: FastifyInstance) {
   app.get('/stats/activity', auth, async request => {
     return getRecentActivity(userId(request));
   });
+
+  app.get<{ Querystring: { type?: string; gameId?: string; page?: string; limit?: string } }>(
+    '/activity',
+    auth,
+    async (request, reply) => {
+      const { type, gameId: gameIdStr, page: pageStr, limit: limitStr } = request.query;
+      if (type !== undefined && !ACTIVITY_TYPES.includes(type as ActivityEventType)) {
+        return reply.status(400).send({ error: 'Invalid type' });
+      }
+      const gameId = gameIdStr ? Number(gameIdStr) : undefined;
+      if (gameIdStr !== undefined && (!Number.isInteger(gameId) || gameId! <= 0)) {
+        return reply.status(400).send({ error: 'Invalid gameId' });
+      }
+      const page = pageStr ? parseInt(pageStr, 10) : undefined;
+      const limit = limitStr ? parseInt(limitStr, 10) : undefined;
+
+      return getActivityPage(userId(request), {
+        type: type as ActivityEventType | undefined,
+        gameId,
+        page,
+        limit,
+      });
+    },
+  );
 }

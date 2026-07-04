@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { PlatformIcon } from "@/components/icon-picker/render";
@@ -1026,6 +1027,13 @@ export default function GameDetailPage() {
               )}
             </div>
           </section>
+
+          <Link
+            href={`/history?gameId=${game.id}`}
+            className="text-sm font-medium text-accent hover:underline text-center"
+          >
+            View History
+          </Link>
 
         </div>
       </div>

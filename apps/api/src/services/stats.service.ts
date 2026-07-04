@@ -455,9 +455,11 @@ export interface ActivityEvent {
   extra?: string | null;
 }
 
-export async function getRecentActivity(userId: number, limit = 10): Promise<ActivityEvent[]> {
-  const [rows] = await getPool().query<RowDataPacket[]>(
-    `SELECT 'session' AS type,
+// Shared by getRecentActivity (dashboard widget) and getActivityPage (full history).
+// Seven UNION branches, each needing its own `user_id = ?` — callers must repeat
+// userId seven times in the param array before any of their own params.
+const ACTIVITY_UNION_SQL = `
+     SELECT 'session' AS type,
             MAX(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago')) AS at,
             g.id AS game_id, g.title, g.cover_path,
             CAST(SUM(ps.duration_min) AS CHAR) AS detail,
@@ -532,11 +534,9 @@ export async function getRecentActivity(userId: number, limit = 10): Promise<Act
        FROM ownership o
        JOIN games g ON g.id = o.game_id
       WHERE o.user_id = ? AND o.acquired_at IS NOT NULL
+`;
 
-      ORDER BY at DESC
-      LIMIT ?`,
-    [userId, userId, userId, userId, userId, userId, userId, limit],
-  );
+function activityRowsToEvents(rows: RowDataPacket[]): ActivityEvent[] {
   return rows.map(r => ({
     type: r.type as ActivityEventType,
     at: r.at as string,
@@ -546,6 +546,54 @@ export async function getRecentActivity(userId: number, limit = 10): Promise<Act
     detail: r.detail as string,
     extra: r.extra as string | null,
   }));
+}
+
+export async function getRecentActivity(userId: number, limit = 10): Promise<ActivityEvent[]> {
+  const [rows] = await getPool().query<RowDataPacket[]>(
+    `${ACTIVITY_UNION_SQL} ORDER BY at DESC LIMIT ?`,
+    [userId, userId, userId, userId, userId, userId, userId, limit],
+  );
+  return activityRowsToEvents(rows);
+}
+
+export interface ActivityPage {
+  events: ActivityEvent[];
+  total: number;
+}
+
+export async function getActivityPage(
+  userId: number,
+  opts: { type?: ActivityEventType; gameId?: number; page?: number; limit?: number },
+): Promise<ActivityPage> {
+  const page = Math.max(1, opts.page ?? 1);
+  const limit = Math.min(100, Math.max(1, opts.limit ?? 30));
+  const offset = (page - 1) * limit;
+
+  const filters: string[] = [];
+  const filterParams: (string | number)[] = [];
+  if (opts.type) {
+    filters.push('type = ?');
+    filterParams.push(opts.type);
+  }
+  if (opts.gameId) {
+    filters.push('game_id = ?');
+    filterParams.push(opts.gameId);
+  }
+  const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
+
+  const userParams = [userId, userId, userId, userId, userId, userId, userId];
+
+  const [[{ total }]] = await getPool().query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS total FROM (${ACTIVITY_UNION_SQL}) t ${whereClause}`,
+    [...userParams, ...filterParams],
+  );
+
+  const [rows] = await getPool().query<RowDataPacket[]>(
+    `SELECT * FROM (${ACTIVITY_UNION_SQL}) t ${whereClause} ORDER BY at DESC LIMIT ? OFFSET ?`,
+    [...userParams, ...filterParams, limit, offset],
+  );
+
+  return { events: activityRowsToEvents(rows), total: Number(total) };
 }
 
 // ---------------------------------------------------------------------------

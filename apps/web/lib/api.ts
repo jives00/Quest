@@ -795,6 +795,20 @@ export const api = {
   getAchievementGames: (token: string, signal?: AbortSignal) =>
     request<AchievementGameOption[]>("/api/achievements/games", { token, signal }),
 
+  // ── Activity / history (all-events list) ───────────────────────────────
+  getActivityPage: (
+    token: string,
+    params: { type?: ActivityEventType; gameId?: number; page?: number; limit?: number },
+    signal?: AbortSignal,
+  ) => {
+    const qs = new URLSearchParams();
+    if (params.type) qs.set("type", params.type);
+    if (params.gameId) qs.set("gameId", String(params.gameId));
+    if (params.page) qs.set("page", String(params.page));
+    if (params.limit) qs.set("limit", String(params.limit));
+    return request<{ events: ActivityEvent[]; total: number }>(`/api/activity${qs.toString() ? `?${qs}` : ""}`, { token, signal });
+  },
+
   // ── Discover ────────────────────────────────────────────────────────────
   discover: (
     category: DiscoverCategory,
