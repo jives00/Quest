@@ -5,10 +5,15 @@
 ### Frontend – Web
 - Hero and now-playing images switched from plain `<img>` to `next/image` (with `priority`) so they're resized/re-encoded and prioritized for above-the-fold load instead of transferring full-resolution IGDB/SteamGridDB source images `2512dca`
 - Now Playing hero: match the standard hero's image treatment (right 4/5 width, unblurred, left-to-right fade) instead of a fully blurred/darkened background `7afabc5`
+- Game detail: "Rarity" achievement sort now ranks locked achievements by rarity too, instead of only sorting unlocked ones and dumping every locked achievement into an unsorted bottom bucket `5502f97`
+- New `/achievements` page: infinite-scroll list of every achievement across the library with Rarity/Date/Name/Locked sorts (default Date) and a per-game filter; linked from Stats' "Rarest Achievements" section and the avatar dropdown menu `f6b2422`
+- New `/history` page: infinite-scroll feed of every tracked event (play sessions, achievements, completions, status changes, wishlist/backlog adds, ownership) with game and event-type filters, newest first; linked from Stats' "Recent Activity" section, the avatar dropdown menu, and a "View History" link on the game detail sidebar (pre-filtered to that game) `7a78f7f`
 
 ### Backend
 - Stats: `getStats`/`getYearStats` now run their independent queries concurrently via `Promise.all` instead of ~20-25 sequential round trips per dashboard/year-in-review load `1ee3bcf`
 - MySQL pool: explicit `connectionLimit`/`waitForConnections` instead of implicit mysql2 defaults, shared across web requests and the Steam/PSN/Xbox pollers `1ee3bcf`
+- New `/api/achievements` and `/api/achievements/games` endpoints: paginated cross-game achievement listing with sort/game filters, deduped by preferred source (Steam over PSN) so dual-platform games don't double-count `f6b2422`
+- New `/api/activity` endpoint: paginated version of the recent-activity feed with type/game filters, built on a shared UNION query extracted from `getRecentActivity` `7a78f7f`
 
 ## July 1, 2026
 
