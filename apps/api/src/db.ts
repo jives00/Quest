@@ -25,6 +25,8 @@ export function getPool(): mysql.Pool {
       // frontend parses them correctly. dateStrings:true drops the tz marker,
       // which made UTC timestamps render as local time (e.g. "-286m ago").
       timezone: 'Z',
+      connectionLimit: 20,
+      waitForConnections: true,
     });
   }
   return pool;

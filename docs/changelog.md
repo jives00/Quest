@@ -1,5 +1,11 @@
 # Changelog
 
+## July 4, 2026
+
+### Backend
+- Stats: `getStats`/`getYearStats` now run their independent queries concurrently via `Promise.all` instead of ~20-25 sequential round trips per dashboard/year-in-review load `1ee3bcf`
+- MySQL pool: explicit `connectionLimit`/`waitForConnections` instead of implicit mysql2 defaults, shared across web requests and the Steam/PSN/Xbox pollers `1ee3bcf`
+
 ## July 1, 2026
 
 ### Frontend – Web

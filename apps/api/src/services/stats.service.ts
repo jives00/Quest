@@ -119,73 +119,194 @@ function genreNames(raw: unknown): string[] {
 export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Stats> {
   const pool = getPool();
 
-  // ---- Overview ----------------------------------------------------------
-  const [[trackedRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(duration_min),0) AS m, COUNT(*) AS n
-       FROM play_sessions WHERE user_id = ?`,
-    [userId],
-  );
-  const [[lifetimeRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(total_minutes),0) AS m FROM playtime_totals WHERE user_id = ?`,
-    [userId],
-  );
-  const [[ownedRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(DISTINCT game_id) AS n FROM ownership WHERE user_id = ?`,
-    [userId],
-  );
-  const [[playedRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(DISTINCT game_id) AS n FROM playtime_totals WHERE user_id = ? AND total_minutes > 0`,
-    [userId],
-  );
-  const [[achRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS n FROM user_achievements WHERE user_id = ? AND unlocked_at IS NOT NULL`,
-    [userId],
-  );
-  const [[needsMatchRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(DISTINCT o.game_id) AS n
-       FROM ownership o JOIN games g ON g.id = o.game_id
-      WHERE o.user_id = ? AND g.match_status = 'provisional'`,
-    [userId],
-  );
-  // Perfect games: every known achievement for the game unlocked by the user.
-  const [[perfectRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS n FROM (
-       SELECT a.game_id
+  // All queries below only depend on userId/tzOffsetMinutes (not on each
+  // other's results), so run them concurrently instead of serially — this
+  // was ~20 sequential round trips before.
+  const [
+    [[trackedRow]],
+    [[lifetimeRow]],
+    [[ownedRow]],
+    [[playedRow]],
+    [[achRow]],
+    [[needsMatchRow]],
+    [[perfectRow]],
+    [statusRows],
+    [ownPlat],
+    [playPlat],
+    [achPlat],
+    [customPlatRows],
+    [genreRows],
+    [topRows],
+    [heatRows],
+    [recentPlatRows],
+    [recentGenreRows],
+    [compYearRows],
+    [yearAchRows],
+    [rarityRows],
+    [perfectGameRows],
+  ] = await Promise.all([
+    pool.query<RowDataPacket[]>(
+      `SELECT COALESCE(SUM(duration_min),0) AS m, COUNT(*) AS n
+         FROM play_sessions WHERE user_id = ?`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT COALESCE(SUM(total_minutes),0) AS m FROM playtime_totals WHERE user_id = ?`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT game_id) AS n FROM ownership WHERE user_id = ?`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT game_id) AS n FROM playtime_totals WHERE user_id = ? AND total_minutes > 0`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS n FROM user_achievements WHERE user_id = ? AND unlocked_at IS NOT NULL`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT o.game_id) AS n
+         FROM ownership o JOIN games g ON g.id = o.game_id
+        WHERE o.user_id = ? AND g.match_status = 'provisional'`,
+      [userId],
+    ),
+    // Perfect games: every known achievement for the game unlocked by the user.
+    pool.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS n FROM (
+         SELECT a.game_id
+           FROM achievements a
+           LEFT JOIN user_achievements ua
+             ON ua.game_id = a.game_id AND ua.api_name = a.api_name
+            AND ua.user_id = ? AND ua.unlocked_at IS NOT NULL
+          GROUP BY a.game_id
+         HAVING COUNT(a.id) > 0 AND COUNT(a.id) = COUNT(ua.id)
+       ) t`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT status, COUNT(*) AS n FROM game_status WHERE user_id = ? GROUP BY status`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT platform, COUNT(DISTINCT game_id) AS n FROM ownership WHERE user_id = ? GROUP BY platform`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT source, COALESCE(SUM(total_minutes),0) AS m FROM playtime_totals WHERE user_id = ? GROUP BY source`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT a.source, COUNT(*) AS n
+         FROM user_achievements ua JOIN achievements a
+           ON a.game_id = ua.game_id AND a.api_name = ua.api_name
+        WHERE ua.user_id = ? AND ua.unlocked_at IS NOT NULL
+        GROUP BY a.source`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT up.name, COUNT(DISTINCT co.game_id) AS n
+         FROM custom_ownership co
+         JOIN user_platforms up ON up.id = co.platform_id
+        WHERE co.user_id = ?
+        GROUP BY up.id, up.name`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT g.genres AS genres, SUM(pt.total_minutes) AS m
+         FROM playtime_totals pt JOIN games g ON g.id = pt.game_id
+        WHERE pt.user_id = ? AND pt.total_minutes > 0
+        GROUP BY g.id`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT g.id AS game_id, g.title, g.cover_path,
+              SUM(pt.total_minutes) AS m,
+              COUNT(DISTINCT gc.id) AS completions
+         FROM playtime_totals pt
+         JOIN games g ON g.id = pt.game_id
+         LEFT JOIN game_completions gc ON gc.game_id = g.id AND gc.user_id = pt.user_id
+        WHERE pt.user_id = ?
+        GROUP BY g.id ORDER BY m DESC LIMIT 12`,
+      [userId],
+    ),
+    // Heatmap (all-time, frontend windows to last 365 days). No date filter
+    // here — the frontend calendar grid only renders cells for the past 365
+    // days, so old/future records are naturally ignored. This avoids issues
+    // with NAS clock drift making NOW()-based filters exclude valid records.
+    // Avoid CONVERT_TZ — returns NULL without timezone tables.
+    // tzOffsetMinutes is JS getTimezoneOffset(): positive = behind UTC (e.g.
+    // CDT = 300). Subtract from UTC to get local time for date bucketing.
+    pool.query<RowDataPacket[]>(
+      `SELECT DATE(started_at - INTERVAL ? MINUTE) AS d, SUM(duration_min) AS m
+         FROM play_sessions
+        WHERE user_id = ?
+        GROUP BY DATE(started_at - INTERVAL ? MINUTE)
+       HAVING d IS NOT NULL
+        ORDER BY d`,
+      [tzOffsetMinutes, userId, tzOffsetMinutes],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT source, COALESCE(SUM(duration_min), 0) AS m
+         FROM play_sessions
+        WHERE user_id = ? AND started_at > DATE_SUB(NOW(), INTERVAL 12 MONTH)
+        GROUP BY source`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT g.genres AS genres, SUM(ps.duration_min) AS m
+         FROM play_sessions ps JOIN games g ON g.id = ps.game_id
+        WHERE ps.user_id = ? AND ps.started_at > DATE_SUB(NOW(), INTERVAL 12 MONTH) AND ps.duration_min > 0
+        GROUP BY g.id`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT yr, COUNT(DISTINCT game_id) AS cnt
+         FROM (
+           SELECT YEAR(completed_at) AS yr, game_id FROM game_completions WHERE user_id = ?
+           UNION
+           SELECT YEAR(occurred_start), game_id FROM play_history WHERE user_id = ? AND status = 'completed' AND occurred_start IS NOT NULL
+         ) t
+        GROUP BY yr ORDER BY yr ASC`,
+      [userId, userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT YEAR(CONVERT_TZ(unlocked_at, '+00:00', 'America/Chicago')) AS yr, COUNT(*) AS cnt
+         FROM user_achievements
+        WHERE user_id = ? AND unlocked_at IS NOT NULL
+        GROUP BY yr ORDER BY yr ASC`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT g.id AS game_id, g.title, g.cover_path,
+              a.api_name, a.name, a.description, a.icon, a.global_pct,
+              ua.unlocked_at
+         FROM user_achievements ua
+         JOIN achievements a ON a.game_id = ua.game_id AND a.api_name = ua.api_name
+         JOIN games g ON g.id = ua.game_id
+        WHERE ua.user_id = ? AND ua.unlocked_at IS NOT NULL AND a.global_pct IS NOT NULL
+        ORDER BY a.global_pct ASC
+        LIMIT 14`,
+      [userId],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT g.id AS game_id, g.title, g.cover_path, COUNT(a.id) AS ach_count
          FROM achievements a
          LEFT JOIN user_achievements ua
            ON ua.game_id = a.game_id AND ua.api_name = a.api_name
           AND ua.user_id = ? AND ua.unlocked_at IS NOT NULL
+         JOIN games g ON g.id = a.game_id
         GROUP BY a.game_id
        HAVING COUNT(a.id) > 0 AND COUNT(a.id) = COUNT(ua.id)
-     ) t`,
-    [userId],
-  );
+        ORDER BY ach_count DESC`,
+      [userId],
+    ),
+  ]);
 
-  // ---- Status counts -----------------------------------------------------
-  const [statusRows] = await pool.query<RowDataPacket[]>(
-    `SELECT status, COUNT(*) AS n FROM game_status WHERE user_id = ? GROUP BY status`,
-    [userId],
-  );
   const statusCounts: Record<string, number> = {};
   for (const r of statusRows) statusCounts[r.status as string] = asInt(r.n);
 
-  // ---- Per-platform ------------------------------------------------------
-  const [ownPlat] = await pool.query<RowDataPacket[]>(
-    `SELECT platform, COUNT(DISTINCT game_id) AS n FROM ownership WHERE user_id = ? GROUP BY platform`,
-    [userId],
-  );
-  const [playPlat] = await pool.query<RowDataPacket[]>(
-    `SELECT source, COALESCE(SUM(total_minutes),0) AS m FROM playtime_totals WHERE user_id = ? GROUP BY source`,
-    [userId],
-  );
-  const [achPlat] = await pool.query<RowDataPacket[]>(
-    `SELECT a.source, COUNT(*) AS n
-       FROM user_achievements ua JOIN achievements a
-         ON a.game_id = ua.game_id AND a.api_name = ua.api_name
-      WHERE ua.user_id = ? AND ua.unlocked_at IS NOT NULL
-      GROUP BY a.source`,
-    [userId],
-  );
   const ownMap = new Map(ownPlat.map(r => [r.platform as string, asInt(r.n)]));
   const playMap = new Map(playPlat.map(r => [r.source as string, asInt(r.m)]));
   const achMap = new Map(achPlat.map(r => [r.source as string, asInt(r.n)]));
@@ -200,27 +321,12 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
     .filter(p => p.owned || p.playMinutes || p.achievements);
 
   // Custom platforms: ownership count only (no playtime/achievements for custom platforms)
-  const [customPlatRows] = await pool.query<RowDataPacket[]>(
-    `SELECT up.name, COUNT(DISTINCT co.game_id) AS n
-       FROM custom_ownership co
-       JOIN user_platforms up ON up.id = co.platform_id
-      WHERE co.user_id = ?
-      GROUP BY up.id, up.name`,
-    [userId],
-  );
   for (const r of customPlatRows) {
     const n = asInt(r.n);
     if (n > 0) byPlatform.push({ platform: `custom:${r.name as string}`, label: r.name as string, owned: n, playMinutes: 0, achievements: 0 });
   }
 
   // ---- Per-genre (expanded in JS from the games.genres JSON) --------------
-  const [genreRows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.genres AS genres, SUM(pt.total_minutes) AS m
-       FROM playtime_totals pt JOIN games g ON g.id = pt.game_id
-      WHERE pt.user_id = ? AND pt.total_minutes > 0
-      GROUP BY g.id`,
-    [userId],
-  );
   const genreAgg = new Map<string, { playMinutes: number; games: number }>();
   for (const r of genreRows) {
     const minutes = asInt(r.m);
@@ -237,17 +343,6 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
     .slice(0, 12);
 
   // ---- Top played --------------------------------------------------------
-  const [topRows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.id AS game_id, g.title, g.cover_path,
-            SUM(pt.total_minutes) AS m,
-            COUNT(DISTINCT gc.id) AS completions
-       FROM playtime_totals pt
-       JOIN games g ON g.id = pt.game_id
-       LEFT JOIN game_completions gc ON gc.game_id = g.id AND gc.user_id = pt.user_id
-      WHERE pt.user_id = ?
-      GROUP BY g.id ORDER BY m DESC LIMIT 12`,
-    [userId],
-  );
   const topPlayed: TopGame[] = topRows.map(r => ({
     gameId: r.game_id as number,
     title: r.title as string,
@@ -257,21 +352,6 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
   }));
 
   // ---- Heatmap (all-time, frontend windows to last 365 days) -------------
-  // No date filter here — the frontend calendar grid only renders cells for
-  // the past 365 days, so old/future records are naturally ignored. This
-  // avoids issues with NAS clock drift making NOW()-based filters exclude
-  // valid records. Avoid CONVERT_TZ — returns NULL without timezone tables.
-  // tzOffsetMinutes is JS getTimezoneOffset(): positive = behind UTC (e.g. CDT = 300).
-  // Subtract from UTC to get local time for date bucketing.
-  const [heatRows] = await pool.query<RowDataPacket[]>(
-    `SELECT DATE(started_at - INTERVAL ? MINUTE) AS d, SUM(duration_min) AS m
-       FROM play_sessions
-      WHERE user_id = ?
-      GROUP BY DATE(started_at - INTERVAL ? MINUTE)
-     HAVING d IS NOT NULL
-      ORDER BY d`,
-    [tzOffsetMinutes, userId, tzOffsetMinutes],
-  );
   const heatmap: HeatmapDay[] = heatRows.map(r => {
     const raw = r.d;
     const date = raw instanceof Date ? raw.toISOString().slice(0, 10) : String(raw).slice(0, 10);
@@ -279,13 +359,6 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
   });
 
   // ---- Recent platform playtime (last 12 months, from sessions) ----------
-  const [recentPlatRows] = await pool.query<RowDataPacket[]>(
-    `SELECT source, COALESCE(SUM(duration_min), 0) AS m
-       FROM play_sessions
-      WHERE user_id = ? AND started_at > DATE_SUB(NOW(), INTERVAL 12 MONTH)
-      GROUP BY source`,
-    [userId],
-  );
   const recentPlatMap = new Map(recentPlatRows.map(r => [r.source as string, asInt(r.m)]));
   const recentPlatformPlaytime: RecentPlatformPlaytime[] = ALL_PLATFORMS
     .map(p => ({ platform: p, label: PLATFORM_LABELS[p], playMinutes: recentPlatMap.get(p) ?? 0 }))
@@ -293,13 +366,6 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
     .sort((a, b) => b.playMinutes - a.playMinutes);
 
   // ---- Recent genre playtime (last 12 months, from sessions) -------------
-  const [recentGenreRows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.genres AS genres, SUM(ps.duration_min) AS m
-       FROM play_sessions ps JOIN games g ON g.id = ps.game_id
-      WHERE ps.user_id = ? AND ps.started_at > DATE_SUB(NOW(), INTERVAL 12 MONTH) AND ps.duration_min > 0
-      GROUP BY g.id`,
-    [userId],
-  );
   const recentGenreAgg = new Map<string, { playMinutes: number; games: number }>();
   for (const r of recentGenreRows) {
     const minutes = asInt(r.m);
@@ -316,47 +382,18 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
     .slice(0, 12);
 
   // ---- Completions by year -----------------------------------------------
-  const [compYearRows] = await pool.query<RowDataPacket[]>(
-    `SELECT yr, COUNT(DISTINCT game_id) AS cnt
-       FROM (
-         SELECT YEAR(completed_at) AS yr, game_id FROM game_completions WHERE user_id = ?
-         UNION
-         SELECT YEAR(occurred_start), game_id FROM play_history WHERE user_id = ? AND status = 'completed' AND occurred_start IS NOT NULL
-       ) t
-      GROUP BY yr ORDER BY yr ASC`,
-    [userId, userId],
-  );
   const completionsByYear: CompletionsByYear[] = compYearRows.map(r => ({
     year: Number(r.yr),
     count: asInt(r.cnt),
   }));
 
   // ---- Yearly achievements -----------------------------------------------
-  const [yearAchRows] = await pool.query<RowDataPacket[]>(
-    `SELECT YEAR(CONVERT_TZ(unlocked_at, '+00:00', 'America/Chicago')) AS yr, COUNT(*) AS cnt
-       FROM user_achievements
-      WHERE user_id = ? AND unlocked_at IS NOT NULL
-      GROUP BY yr ORDER BY yr ASC`,
-    [userId],
-  );
   const yearlyAchievements: YearlyAchievements[] = yearAchRows.map(r => ({
     year: Number(r.yr),
     count: asInt(r.cnt),
   }));
 
   // ---- Rarity achievements (top 10 rarest unlocked) ----------------------
-  const [rarityRows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.id AS game_id, g.title, g.cover_path,
-            a.api_name, a.name, a.description, a.icon, a.global_pct,
-            ua.unlocked_at
-       FROM user_achievements ua
-       JOIN achievements a ON a.game_id = ua.game_id AND a.api_name = ua.api_name
-       JOIN games g ON g.id = ua.game_id
-      WHERE ua.user_id = ? AND ua.unlocked_at IS NOT NULL AND a.global_pct IS NOT NULL
-      ORDER BY a.global_pct ASC
-      LIMIT 14`,
-    [userId],
-  );
   const rarityAchievements: RarityAchievement[] = rarityRows.map(r => ({
     gameId: r.game_id as number,
     title: r.title as string,
@@ -370,18 +407,6 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
   }));
 
   // ---- Perfect games (all achievements unlocked) -------------------------
-  const [perfectGameRows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.id AS game_id, g.title, g.cover_path, COUNT(a.id) AS ach_count
-       FROM achievements a
-       LEFT JOIN user_achievements ua
-         ON ua.game_id = a.game_id AND ua.api_name = a.api_name
-        AND ua.user_id = ? AND ua.unlocked_at IS NOT NULL
-       JOIN games g ON g.id = a.game_id
-      GROUP BY a.game_id
-     HAVING COUNT(a.id) > 0 AND COUNT(a.id) = COUNT(ua.id)
-      ORDER BY ach_count DESC`,
-    [userId],
-  );
   const perfectGames: PerfectGame[] = perfectGameRows.map(r => ({
     gameId: r.game_id as number,
     title: r.title as string,
@@ -558,58 +583,80 @@ export async function getAvailableYears(userId: number): Promise<number[]> {
 export async function getYearStats(userId: number, year: number): Promise<YearStats> {
   const pool = getPool();
 
-  const [[playRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COALESCE(SUM(duration_min),0) AS m, COUNT(*) AS n,
-            COUNT(DISTINCT game_id) AS g
-       FROM play_sessions WHERE user_id = ? AND YEAR(CONVERT_TZ(started_at, '+00:00', 'America/Chicago')) = ?`,
-    [userId, year],
-  );
-  const [[achRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS n FROM user_achievements
-      WHERE user_id = ? AND YEAR(CONVERT_TZ(unlocked_at, '+00:00', 'America/Chicago')) = ?`,
-    [userId, year],
-  );
-  const [[acqRow]] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(DISTINCT game_id) AS n FROM ownership
-      WHERE user_id = ? AND YEAR(acquired_at) = ?`,
-    [userId, year],
-  );
-
-  // Supplemental: hltb/manual playtime for games completed this year that have
-  // no tracked play_sessions in this year (avoids double-counting).
-  const [hltbRows] = await pool.query<RowDataPacket[]>(
-    `SELECT pt.game_id, pt.total_minutes AS m, g.title, g.cover_path
-       FROM playtime_totals pt
-       JOIN games g ON g.id = pt.game_id
-      WHERE pt.user_id = ?
-        AND pt.source IN ('hltb', 'manual')
-        AND (
-          EXISTS (
-            SELECT 1 FROM game_completions
-             WHERE user_id = ? AND game_id = pt.game_id AND YEAR(completed_at) = ?
+  const [
+    [[playRow]],
+    [[achRow]],
+    [[acqRow]],
+    [hltbRows],
+    [topRows],
+    [finishedRows],
+  ] = await Promise.all([
+    pool.query<RowDataPacket[]>(
+      `SELECT COALESCE(SUM(duration_min),0) AS m, COUNT(*) AS n,
+              COUNT(DISTINCT game_id) AS g
+         FROM play_sessions WHERE user_id = ? AND YEAR(CONVERT_TZ(started_at, '+00:00', 'America/Chicago')) = ?`,
+      [userId, year],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS n FROM user_achievements
+        WHERE user_id = ? AND YEAR(CONVERT_TZ(unlocked_at, '+00:00', 'America/Chicago')) = ?`,
+      [userId, year],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT game_id) AS n FROM ownership
+        WHERE user_id = ? AND YEAR(acquired_at) = ?`,
+      [userId, year],
+    ),
+    // Supplemental: hltb/manual playtime for games completed this year that
+    // have no tracked play_sessions in this year (avoids double-counting).
+    pool.query<RowDataPacket[]>(
+      `SELECT pt.game_id, pt.total_minutes AS m, g.title, g.cover_path
+         FROM playtime_totals pt
+         JOIN games g ON g.id = pt.game_id
+        WHERE pt.user_id = ?
+          AND pt.source IN ('hltb', 'manual')
+          AND (
+            EXISTS (
+              SELECT 1 FROM game_completions
+               WHERE user_id = ? AND game_id = pt.game_id AND YEAR(completed_at) = ?
+            )
+            OR EXISTS (
+              SELECT 1 FROM play_history
+               WHERE user_id = ? AND game_id = pt.game_id
+                 AND status = 'completed' AND occurred_start IS NOT NULL
+                 AND YEAR(occurred_start) = ?
+            )
           )
-          OR EXISTS (
-            SELECT 1 FROM play_history
-             WHERE user_id = ? AND game_id = pt.game_id
-               AND status = 'completed' AND occurred_start IS NOT NULL
-               AND YEAR(occurred_start) = ?
-          )
-        )
-        AND NOT EXISTS (
-          SELECT 1 FROM play_sessions ps
-           WHERE ps.user_id = ? AND ps.game_id = pt.game_id
-             AND YEAR(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago')) = ?
-        )`,
-    [userId, userId, year, userId, year, userId, year],
-  );
+          AND NOT EXISTS (
+            SELECT 1 FROM play_sessions ps
+             WHERE ps.user_id = ? AND ps.game_id = pt.game_id
+               AND YEAR(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago')) = ?
+          )`,
+      [userId, userId, year, userId, year, userId, year],
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT g.id AS game_id, g.title, g.cover_path, SUM(ps.duration_min) AS m
+         FROM play_sessions ps JOIN games g ON g.id = ps.game_id
+        WHERE ps.user_id = ? AND YEAR(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago')) = ?
+        GROUP BY g.id ORDER BY m DESC LIMIT 12`,
+      [userId, year],
+    ),
+    // Finished = game_completions entries that year (source of truth)
+    // + manual play_history completed entries that year
+    pool.query<RowDataPacket[]>(
+      `SELECT g.id AS game_id, g.title, 'completed' AS status, gc.completed_at AS at
+         FROM game_completions gc JOIN games g ON g.id = gc.game_id
+        WHERE gc.user_id = ? AND YEAR(gc.completed_at) = ?
+       UNION
+       SELECT g.id, g.title, ph.status, ph.occurred_start
+         FROM play_history ph JOIN games g ON g.id = ph.game_id
+        WHERE ph.user_id = ? AND YEAR(ph.occurred_start) = ?
+          AND ph.status = 'completed'
+        ORDER BY at`,
+      [userId, year, userId, year],
+    ),
+  ]);
   const hltbExtraMinutes = hltbRows.reduce((s: number, r: RowDataPacket) => s + asInt(r.m), 0);
-  const [topRows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.id AS game_id, g.title, g.cover_path, SUM(ps.duration_min) AS m
-       FROM play_sessions ps JOIN games g ON g.id = ps.game_id
-      WHERE ps.user_id = ? AND YEAR(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago')) = ?
-      GROUP BY g.id ORDER BY m DESC LIMIT 12`,
-    [userId, year],
-  );
   const sessionTopGames: TopGame[] = topRows.map(r => ({
     gameId: r.game_id as number,
     title: r.title as string,
@@ -632,20 +679,6 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
 
   const hltbExtraGames = hltbRows.length;
 
-  // Finished = game_completions entries that year (source of truth)
-  // + manual play_history completed entries that year
-  const [finishedRows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.id AS game_id, g.title, 'completed' AS status, gc.completed_at AS at
-       FROM game_completions gc JOIN games g ON g.id = gc.game_id
-      WHERE gc.user_id = ? AND YEAR(gc.completed_at) = ?
-     UNION
-     SELECT g.id, g.title, ph.status, ph.occurred_start
-       FROM play_history ph JOIN games g ON g.id = ph.game_id
-      WHERE ph.user_id = ? AND YEAR(ph.occurred_start) = ?
-        AND ph.status = 'completed'
-      ORDER BY at`,
-    [userId, year, userId, year],
-  );
   const finishedTitles = finishedRows.map(r => ({
     gameId: r.game_id as number,
     title: r.title as string,
