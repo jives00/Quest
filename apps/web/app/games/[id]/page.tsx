@@ -392,10 +392,7 @@ export default function GameDetailPage() {
 
   const sortedAchievements = [...game.achievements].sort((a, b) => {
     if (achSort === "rarity") {
-      // Rarest first (lowest %); null pct sorts to end; locked to bottom
-      if (!a.unlockedAt && !b.unlockedAt) return 0;
-      if (!a.unlockedAt) return 1;
-      if (!b.unlockedAt) return -1;
+      // Rarest first (lowest %) across all achievements regardless of lock state; null pct sorts to end
       const pa = a.globalPct ?? 101;
       const pb = b.globalPct ?? 101;
       return pa - pb;
