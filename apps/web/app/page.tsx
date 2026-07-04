@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { BarChart, Bar, Cell, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -62,11 +63,16 @@ function HeroSection({ hero, summary }: { hero: DashboardHero | null; summary: D
   return (
     <section className="relative overflow-hidden bg-black" style={{ minHeight: 240 }}>
       {hero && (
-        <img
-          src={hero.heroPath}
-          alt={hero.title}
-          className="absolute right-0 top-0 h-full w-4/5 object-cover object-center"
-        />
+        <div className="absolute right-0 top-0 h-full w-4/5">
+          <Image
+            src={hero.heroPath}
+            alt={hero.title}
+            fill
+            sizes="80vw"
+            className="object-cover object-center"
+            priority
+          />
+        </div>
       )}
 
       {/* Fade from solid black on the left into transparent, revealing the image on the right */}
@@ -110,11 +116,14 @@ function NowPlayingHero({ nowPlaying, summary }: { nowPlaying: NowPlayingInfo; s
   return (
     <section className="relative overflow-hidden bg-black" style={{ minHeight: 240 }}>
       {(nowPlaying.heroPath ?? nowPlaying.coverPath) && (
-        <img
+        <Image
           src={(nowPlaying.heroPath ?? nowPlaying.coverPath)!}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover object-center"
+          fill
+          sizes="100vw"
+          className="object-cover object-center"
           style={{ filter: "blur(2px) brightness(0.4)" }}
+          priority
         />
       )}
       <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/10" />
@@ -123,9 +132,11 @@ function NowPlayingHero({ nowPlaying, summary }: { nowPlaying: NowPlayingInfo; s
       <div className="relative z-10 px-margin-page pt-10 pb-8 flex gap-6 items-end min-h-[240px] md:min-h-[300px]">
         {nowPlaying.coverPath && (
           <Link href={`/games/${nowPlaying.gameId}`} className="hidden md:block shrink-0">
-            <img
+            <Image
               src={nowPlaying.coverPath}
               alt={nowPlaying.title}
+              width={96}
+              height={144}
               className="w-24 h-36 object-cover shadow-2xl"
             />
           </Link>
