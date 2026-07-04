@@ -466,7 +466,12 @@ function Lifetime({ token }: { token: string }) {
       {/* ── Rarest achievements ─────────────────────────────────────────── */}
       {stats.rarityAchievements.length > 0 && (
         <div>
-          <SectionHeader>Rarest Achievements</SectionHeader>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-on-surface">Rarest Achievements</h2>
+            <Link href="/achievements" className="text-sm font-medium text-accent hover:underline">
+              View All
+            </Link>
+          </div>
           <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-4">
             {stats.rarityAchievements.map((a) => (
               <Link key={`${a.gameId}-${a.apiName}`} href={`/games/${a.gameId}`} className="group">

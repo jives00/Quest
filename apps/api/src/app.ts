@@ -29,6 +29,7 @@ import { userPlatformsRoutes } from './routes/user-platforms.routes';
 import { customOwnershipRoutes } from './routes/custom-ownership.routes';
 import { platformOverridesRoutes } from './routes/platform-overrides.routes';
 import { appVersionRoutes } from './routes/app-version.routes';
+import { achievementsRoutes } from './routes/achievements.routes';
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -82,6 +83,7 @@ export function buildApp(): FastifyInstance {
   void app.register(customOwnershipRoutes, { prefix: '/api' });
   void app.register(platformOverridesRoutes, { prefix: '/api' });
   void app.register(appVersionRoutes, { prefix: '/api' });
+  void app.register(achievementsRoutes, { prefix: '/api' });
 
   return app;
 }

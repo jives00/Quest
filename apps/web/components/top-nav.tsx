@@ -17,6 +17,7 @@ const topNavLinks = [
 ];
 
 const avatarDropdownLinks = [
+  { href: "/achievements", label: "Achievements" },
   { href: "/settings", label: "Settings" },
 ];
 

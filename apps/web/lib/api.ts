@@ -327,6 +327,27 @@ export interface RarityAchievement {
   unlockedAt: string;
 }
 
+export interface AllAchievement {
+  gameId: number;
+  gameTitle: string;
+  gameCoverPath: string | null;
+  apiName: string;
+  name: string;
+  description: string | null;
+  icon: string | null;
+  globalPct: number | null;
+  dlcAppName: string | null;
+  unlockedAt: string | null;
+}
+
+export type AchievementSort = "rarity" | "date" | "name" | "locked";
+
+export interface AchievementGameOption {
+  gameId: number;
+  title: string;
+  achievementCount: number;
+}
+
 export interface PerfectGame {
   gameId: number;
   title: string;
@@ -758,6 +779,21 @@ export const api = {
     request<YearStats>(`/api/stats/year/${year}`, { token, signal }),
   getActivity: (token: string, signal?: AbortSignal) =>
     request<ActivityEvent[]>("/api/stats/activity", { token, signal }),
+
+  // ── Achievements (all-games list) ──────────────────────────────────────
+  getAllAchievements: (
+    token: string,
+    params: { sort: AchievementSort; gameId?: number; page?: number; limit?: number },
+    signal?: AbortSignal,
+  ) => {
+    const qs = new URLSearchParams({ sort: params.sort });
+    if (params.gameId) qs.set("gameId", String(params.gameId));
+    if (params.page) qs.set("page", String(params.page));
+    if (params.limit) qs.set("limit", String(params.limit));
+    return request<{ achievements: AllAchievement[]; total: number }>(`/api/achievements?${qs}`, { token, signal });
+  },
+  getAchievementGames: (token: string, signal?: AbortSignal) =>
+    request<AchievementGameOption[]>("/api/achievements/games", { token, signal }),
 
   // ── Discover ────────────────────────────────────────────────────────────
   discover: (
