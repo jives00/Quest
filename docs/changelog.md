@@ -4,6 +4,7 @@
 
 ### Frontend – Web
 - Hero and now-playing images switched from plain `<img>` to `next/image` (with `priority`) so they're resized/re-encoded and prioritized for above-the-fold load instead of transferring full-resolution IGDB/SteamGridDB source images `2512dca`
+- Now Playing hero: match the standard hero's image treatment (right 4/5 width, unblurred, left-to-right fade) instead of a fully blurred/darkened background `7afabc5`
 
 ### Backend
 - Stats: `getStats`/`getYearStats` now run their independent queries concurrently via `Promise.all` instead of ~20-25 sequential round trips per dashboard/year-in-review load `1ee3bcf`
