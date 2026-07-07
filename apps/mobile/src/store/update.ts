@@ -35,6 +35,7 @@ export const useUpdateStore = create<UpdateState & UpdateActions>((set, get) => 
     set({ checking: true });
     try {
       const base = await resolveApiBase();
+      if (!base) return; // off-network — skip the update check
       const res = await fetch(`${base}/api/app/version`);
       if (!res.ok) return;
       const { tag, apkUrl } = (await res.json()) as { tag: string; apkUrl: string };

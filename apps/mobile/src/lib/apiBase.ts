@@ -5,7 +5,7 @@ import { API_BASES } from "./constants";
 // LAN IP). We health-probe all candidates in parallel and use the first that responds.
 
 let resolvedBase: string | null = null;
-let resolvePromise: Promise<string> | null = null;
+let resolvePromise: Promise<string | null> | null = null;
 
 async function probe(base: string, timeoutMs = 2500): Promise<boolean> {
   const controller = new AbortController();
@@ -20,25 +20,25 @@ async function probe(base: string, timeoutMs = 2500): Promise<boolean> {
   }
 }
 
-// Async: returns a reachable base, caching the result. Falls back to the primary
-// (without caching) if none respond, so requests still surface a real error.
-export function resolveApiBase(): Promise<string> {
+// Async: returns the first reachable base (caching it), or null if none respond —
+// so callers can fail fast when off-network instead of hanging on a doomed request.
+export function resolveApiBase(): Promise<string | null> {
   if (resolvedBase) return Promise.resolve(resolvedBase);
   if (!resolvePromise) {
-    resolvePromise = new Promise<string>((resolve) => {
+    resolvePromise = new Promise<string | null>((resolve) => {
       let remaining = API_BASES.length;
       let settled = false;
-      const done = (value: string, cache: boolean) => {
+      const done = (value: string | null) => {
         if (settled) return;
         settled = true;
-        if (cache) resolvedBase = value;
+        if (value) resolvedBase = value;
         resolve(value);
       };
       API_BASES.forEach(async (base) => {
         const ok = await probe(base);
         remaining -= 1;
-        if (ok) done(base, true);
-        else if (remaining === 0) done(API_BASES[0], false);
+        if (ok) done(base);
+        else if (remaining === 0) done(null); // none reachable
       });
     }).finally(() => {
       resolvePromise = null;

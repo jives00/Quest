@@ -381,6 +381,20 @@ export function refreshAccessToken(): Promise<string> {
 
 // ─── Core request helper ──────────────────────────────────────────────────────
 
+// Bounds a fetch so an unreachable host fails in seconds instead of hanging on the
+// OS TCP-connect timeout (30–75s). Generous enough for legitimate slow LAN requests.
+const REQUEST_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit & { token?: string; _isRetry?: boolean } = {}
@@ -391,16 +405,18 @@ async function request<T>(
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const base = await resolveApiBase();
+  if (!base) throw new ApiError(0, "Can't reach the server (off-network without Tailscale?)");
   let res: Response;
   try {
-    res = await fetch(`${base}${path}`, { ...init, headers });
+    res = await fetchWithTimeout(`${base}${path}`, { ...init, headers });
   } catch (err) {
-    // Network error — the cached base may have become unreachable (e.g. Tailscale
-    // toggled or the network changed). Re-probe once and retry before giving up.
+    // Network error / timeout — the cached base may have become unreachable (e.g.
+    // Tailscale toggled or WiFi dropped). Re-probe once and retry; if nothing is
+    // reachable now, surface the error instead of hanging.
     resetApiBase();
     const nextBase = await resolveApiBase();
-    if (nextBase === base) throw err;
-    res = await fetch(`${nextBase}${path}`, { ...init, headers });
+    if (!nextBase || nextBase === base) throw err;
+    res = await fetchWithTimeout(`${nextBase}${path}`, { ...init, headers });
   }
   if (!res.ok) {
     if (res.status === 401 && !_isRetry && token && !AUTH_NO_RETRY_PATHS.has(path)) {
