@@ -42,13 +42,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => setAuthHandlers({});
   }, []);
 
-  // Initial silent refresh on launch.
+  // Initial silent refresh on launch; if there's no valid stored refresh token,
+  // fall back to passwordless network auto-login (trusted LAN / Tailscale).
   useEffect(() => {
-    refreshAccessToken()
-      .catch(() => {
-        // Failure already handled via onAuthFailure above.
-      })
-      .finally(() => setIsLoading(false));
+    (async () => {
+      try {
+        await refreshAccessToken();
+      } catch {
+        try {
+          const res = await api.session();
+          await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, res.refreshToken);
+          lastRefreshAtRef.current = Date.now();
+          setToken(res.accessToken);
+        } catch {
+          // Untrusted network or offline — show the login screen.
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
   // Proactive refresh timer while authenticated, so the access token never

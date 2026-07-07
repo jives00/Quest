@@ -1,4 +1,4 @@
-import { API_BASE } from "./constants";
+import { currentApiBase } from "./apiBase";
 
 /**
  * Converts a server-relative image path to an absolute URL.
@@ -11,5 +11,5 @@ import { API_BASE } from "./constants";
 export function imgUrl(path: string | null | undefined): string | null {
   if (!path) return null;
   if (path.startsWith("http")) return path;
-  return `${API_BASE}${path}`;
+  return `${currentApiBase()}${path}`;
 }

@@ -1,4 +1,4 @@
-import { API_BASE } from "./constants";
+import { resolveApiBase, resetApiBase } from "./apiBase";
 
 // ─── Domain types (re-exported from web lib/api.ts shapes) ────────────────────
 
@@ -390,7 +390,18 @@ async function request<T>(
   if (init.body) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const base = await resolveApiBase();
+  let res: Response;
+  try {
+    res = await fetch(`${base}${path}`, { ...init, headers });
+  } catch (err) {
+    // Network error — the cached base may have become unreachable (e.g. Tailscale
+    // toggled or the network changed). Re-probe once and retry before giving up.
+    resetApiBase();
+    const nextBase = await resolveApiBase();
+    if (nextBase === base) throw err;
+    res = await fetch(`${nextBase}${path}`, { ...init, headers });
+  }
   if (!res.ok) {
     if (res.status === 401 && !_isRetry && token && !AUTH_NO_RETRY_PATHS.has(path)) {
       let newToken: string | undefined;
@@ -428,6 +439,12 @@ export const api = {
     request<{ accessToken: string }>("/api/auth/refresh", {
       method: "POST",
       body: JSON.stringify({ refreshToken }),
+    }),
+  // Passwordless auto-login for trusted networks (LAN / Tailscale). Returns the
+  // access token + a refresh token to persist in SecureStore; rejects (401) if untrusted.
+  session: () =>
+    request<{ accessToken: string; refreshToken: string }>("/api/auth/session", {
+      method: "POST",
     }),
   logout: (token: string, refreshToken: string) =>
     request<void>("/api/auth/logout", {

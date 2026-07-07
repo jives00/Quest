@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
-import { API_BASE } from "../lib/constants";
+import { resolveApiBase } from "../lib/apiBase";
 
 export const BUILD_TAG = process.env.EXPO_PUBLIC_BUILD_TAG ?? "";
 
@@ -34,7 +34,8 @@ export const useUpdateStore = create<UpdateState & UpdateActions>((set, get) => 
     if (!BUILD_TAG) return;
     set({ checking: true });
     try {
-      const res = await fetch(`${API_BASE}/api/app/version`);
+      const base = await resolveApiBase();
+      const res = await fetch(`${base}/api/app/version`);
       if (!res.ok) return;
       const { tag, apkUrl } = (await res.json()) as { tag: string; apkUrl: string };
       set({ latestTag: tag, apkUrl, updateAvailable: tag !== BUILD_TAG, dismissed: false });
