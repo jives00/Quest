@@ -1,16 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 
 export function LoginForm() {
-  const { login } = useAuth();
+  const { login, token, isLoading } = useAuth();
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // If auto-login (network auto-session or an existing session) produced a token,
+  // leave the login page for the app.
+  useEffect(() => {
+    if (token) router.replace("/");
+  }, [token, router]);
+
+  // While the auth context is still resolving (silent refresh + network auto-session),
+  // show a splash instead of the form so trusted users never see a login prompt.
+  if (isLoading || token) {
+    return (
+      <p className="text-center text-sm text-on-surface-variant">Signing you in…</p>
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

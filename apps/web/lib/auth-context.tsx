@@ -30,11 +30,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => setAuthHandlers({});
   }, []);
 
-  // Initial silent refresh on mount (relies on the httpOnly refresh-token cookie).
+  // On mount: silent refresh via the httpOnly cookie; if that fails (no valid session),
+  // try passwordless network auto-login (trusted LAN / Tailscale) before giving up.
   useEffect(() => {
-    refreshAccessToken()
-      .catch((err) => console.error("Token refresh failed:", err))
-      .finally(() => setIsLoading(false));
+    (async () => {
+      try {
+        await refreshAccessToken();
+      } catch {
+        try {
+          const { accessToken } = await api.session();
+          setToken(accessToken);
+        } catch {
+          // Untrusted network or offline — leave unauthenticated (password form shows).
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
   // Proactive refresh timer while authenticated, so the access token never

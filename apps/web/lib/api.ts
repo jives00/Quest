@@ -605,6 +605,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ username, password }),
     }),
+  // Passwordless auto-login for trusted networks (LAN / Tailscale). Sets the refresh
+  // cookie and resolves with an access token; rejects (401) when untrusted.
+  session: () =>
+    request<{ accessToken: string }>("/api/auth/session", { method: "POST" }),
   refresh: () =>
     request<{ accessToken: string }>("/api/auth/refresh", { method: "POST" }),
   logout: (token: string) =>

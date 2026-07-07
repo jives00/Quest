@@ -9,8 +9,19 @@ import {
   validateRefreshToken,
   deleteRefreshToken,
 } from '../services/auth.service';
+import { isTrustedRequest } from '../middleware/auth';
 
 const COOKIE = 'quest_refreshToken';
+
+function refreshCookieOptions(request: FastifyRequest) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' && request.headers['x-forwarded-proto'] === 'https',
+    sameSite: 'lax' as const,
+    maxAge: 60 * 60 * 24 * 30,
+    path: '/',
+  };
+}
 
 export async function authRoutes(app: FastifyInstance) {
   void app.register(rateLimitPlugin, {
@@ -31,15 +42,28 @@ export async function authRoutes(app: FastifyInstance) {
     const accessToken = createAccessToken(user.id);
     const refreshToken = await createRefreshToken(user.id);
 
-    reply.setCookie(COOKIE, refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production' && request.headers['x-forwarded-proto'] === 'https',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30,
-      path: '/',
-    });
+    reply.setCookie(COOKIE, refreshToken, refreshCookieOptions(request));
 
     // refreshToken also returned in body for future mobile clients (stored in SecureStore)
+    return { accessToken, refreshToken };
+  });
+
+  // Passwordless auto-login for trusted networks (LAN / Tailscale). Issues the same
+  // access token + refresh cookie as /login for the single admin (ADMIN_USERNAME) when
+  // the request is trusted; otherwise 401 so the web falls back to the password form.
+  app.post('/session', async (request: FastifyRequest, reply: FastifyReply) => {
+    if (!isTrustedRequest(request)) {
+      return reply.status(401).send({ error: 'Untrusted network' });
+    }
+    const adminUsername = process.env.ADMIN_USERNAME;
+    const user = adminUsername ? await findUserByUsername(adminUsername) : null;
+    if (!user) return reply.status(401).send({ error: 'No admin user' });
+
+    const accessToken = createAccessToken(user.id);
+    const refreshToken = await createRefreshToken(user.id);
+
+    reply.setCookie(COOKIE, refreshToken, refreshCookieOptions(request));
+
     return { accessToken, refreshToken };
   });
 
