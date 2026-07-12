@@ -20,7 +20,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
       `SELECT
          (SELECT COUNT(DISTINCT game_id) FROM ownership WHERE user_id = ?) AS totalGames,
          (SELECT COALESCE(SUM(duration_min), 0) FROM play_sessions WHERE user_id = ?) AS lifetimeMin,
-         (SELECT COUNT(*) FROM game_status WHERE user_id = ? AND status IN ('completed', 'other')) AS finishedCount,
+         (SELECT COUNT(*) FROM game_status gs
+           WHERE gs.user_id = ? AND gs.status IN ('completed', 'other')
+             AND EXISTS (SELECT 1 FROM ownership o WHERE o.game_id = gs.game_id AND o.user_id = gs.user_id)
+         ) AS finishedCount,
          (SELECT COUNT(*) FROM (
            SELECT a.game_id
              FROM achievements a
