@@ -24,7 +24,7 @@ export async function applyPlaytimeDelta(
 ): Promise<void> {
   const pool = getPool();
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT total_minutes FROM playtime_totals WHERE user_id = ? AND game_id = ? AND source = ?`,
+    `SELECT total_minutes, last_synced_at FROM playtime_totals WHERE user_id = ? AND game_id = ? AND source = ?`,
     [userId, gameId, source],
   );
 
@@ -38,14 +38,32 @@ export async function applyPlaytimeDelta(
   }
 
   const prev = rows[0].total_minutes as number;
+  const lastSyncedAt = rows[0].last_synced_at as Date | null;
   const delta = newTotalMin - prev;
 
   if (delta > 0) {
+    // A derived session can't represent more playtime than the wall-clock time that
+    // actually elapsed since the last successful sync — cap it there. Without this,
+    // a title newly resolving to a game it wasn't matched to before (folding in that
+    // entry's whole lifetime total in one diff) or a transient bad read from an
+    // upstream API (cumulative total briefly inflated, then self-corrects on the next
+    // poll via the delta<0 clamp below) both get recorded as one multi-hour session on
+    // a day the game wasn't even played.
+    const elapsedMin = lastSyncedAt
+      ? Math.max(0, Math.round((Date.now() - lastSyncedAt.getTime()) / 60_000))
+      : delta;
+    const sessionMin = Math.min(delta, elapsedMin);
+    if (sessionMin < delta) {
+      console.warn(
+        `${source} playtime anomaly: game ${gameId} total jumped ${prev}→${newTotalMin} ` +
+          `(+${delta}min) but only ${elapsedMin}min elapsed since last sync — session clamped to ${sessionMin}min`,
+      );
+    }
     await pool.query(
       `INSERT INTO play_sessions
          (user_id, game_id, source, started_at, ended_at, duration_min, derived)
        VALUES (?, ?, ?, DATE_SUB(NOW(), INTERVAL ? MINUTE), NOW(), ?, 1)`,
-      [userId, gameId, source, delta, delta],
+      [userId, gameId, source, sessionMin, sessionMin],
     );
     await pool.query(
       `UPDATE playtime_totals SET total_minutes = ?, last_synced_at = NOW()

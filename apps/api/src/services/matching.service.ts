@@ -551,7 +551,6 @@ export async function ignoreDuplicatePair(userId: number, gameAId: number, gameB
 }
 
 const MERGE_TABLES_UNIQUE_ON_GAME = [
-  'playtime_totals',
   'ownership',
   'game_status',
   'ratings',
@@ -582,6 +581,33 @@ export async function mergeGames(
     await conn.beginTransaction();
 
     const moved: Record<string, number> = {};
+
+    // playtime_totals needs a sum-merge, not a blind UPDATE IGNORE: when both the
+    // winner and loser already have a row for the same (user_id, source), IGNORE
+    // would silently drop the loser's accumulated minutes on the unique-key
+    // collision. The winner's baseline then understates reality, and the next poll's
+    // cumulative-vs-baseline diff sees the loser's whole lifetime total appear at
+    // once as a single giant fake session.
+    const [loserTotals] = await conn.query<RowDataPacket[]>(
+      `SELECT user_id, source, total_minutes, last_synced_at FROM playtime_totals WHERE game_id = ?`,
+      [loserId],
+    );
+    for (const row of loserTotals as Array<{
+      user_id: number;
+      source: string;
+      total_minutes: number;
+      last_synced_at: Date | null;
+    }>) {
+      await conn.query(
+        `INSERT INTO playtime_totals (user_id, game_id, source, total_minutes, last_synced_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           total_minutes = total_minutes + VALUES(total_minutes),
+           last_synced_at = GREATEST(COALESCE(last_synced_at, VALUES(last_synced_at)), COALESCE(VALUES(last_synced_at), last_synced_at))`,
+        [row.user_id, winnerId, row.source, row.total_minutes, row.last_synced_at],
+      );
+    }
+    moved.playtime_totals = loserTotals.length;
 
     // UPDATE IGNORE for tables with a unique constraint involving game_id —
     // rows that would collide with an existing winner row are left behind and
