@@ -46,7 +46,7 @@ export default function MoreMenuScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "900", color: "#f0f0f6" },
   list: { paddingHorizontal: 16, paddingTop: 8 },

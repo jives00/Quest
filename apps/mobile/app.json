@@ -10,13 +10,13 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1c1e26"
+      "backgroundColor": "#1b2838"
     },
     "android": {
       "package": "com.quest.mobile",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1c1e26"
+        "backgroundColor": "#1b2838"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,

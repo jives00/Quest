@@ -37,8 +37,8 @@ const WishlistStack = createNativeStackNavigator<WishlistStackParamList>();
 const ListsStack = createNativeStackNavigator<ListsStackParamList>();
 const MoreStack = createNativeStackNavigator<MoreStackParamList>();
 
-const NAV_BG = "#1c1e26";
-const SURFACE_LOW = "#1e2029";
+const NAV_BG = "#1b2838";
+const SURFACE_LOW = "#1d2a3b";
 const ACCENT = "#6c47ff";
 const ON_SURFACE = "#f0f0f6";
 const ON_SURFACE_VARIANT = "#d7d8e2";

@@ -254,13 +254,13 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
   content: { paddingBottom: 32 },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1c1e26",
+    backgroundColor: "#1b2838",
   },
   emptyText: { color: "#888", fontSize: 14 },
 
@@ -283,7 +283,7 @@ const s = StyleSheet.create({
   },
   statCard: {
     width: "47%",
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
@@ -304,7 +304,7 @@ const s = StyleSheet.create({
   },
   topRank: { color: "#666", fontSize: 12, width: 22, textAlign: "right" },
   topCover: { width: 36, height: 48, borderRadius: 4 },
-  coverFallback: { backgroundColor: "#323440" },
+  coverFallback: { backgroundColor: "#313e52" },
   topInfo: { flex: 1 },
   topTitle: { color: "#f0f0f6", fontSize: 13, fontWeight: "600" },
   topTime: { color: "#888", fontSize: 12, marginTop: 1 },

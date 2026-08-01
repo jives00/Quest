@@ -7,15 +7,15 @@
   --accent-hover-rgb: 22 163 74;
   --accent-light-rgb: 74 222 128;
   --on-accent-bg: #052e16;
-  --glass-bg: rgba(28, 30, 38, 0.75);
+  --glass-bg: rgba(27, 40, 56, 0.75);
 
-  --background-rgb: 28 30 38;
-  --surface-container-lowest-rgb: 18 20 27;
-  --surface-container-low-rgb: 30 32 41;
-  --surface-container-rgb: 38 40 50;
-  --surface-container-high-rgb: 50 52 64;
-  --surface-container-highest-rgb: 64 67 82;
-  --surface-variant-rgb: 64 67 82;
+  --background-rgb: 27 40 56;
+  --surface-container-lowest-rgb: 17 30 45;
+  --surface-container-low-rgb: 29 42 59;
+  --surface-container-rgb: 37 50 68;
+  --surface-container-high-rgb: 49 62 82;
+  --surface-container-highest-rgb: 63 77 100;
+  --surface-variant-rgb: 63 77 100;
 
   --on-surface-rgb: 240 240 246;
   --on-surface-variant-rgb: 215 216 226;

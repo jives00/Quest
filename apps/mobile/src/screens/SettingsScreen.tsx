@@ -253,12 +253,12 @@ function healthColor(health: "green" | "amber" | "red") {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1c1e26",
+    backgroundColor: "#1b2838",
   },
 
   sectionHeader: {
@@ -272,7 +272,7 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: "800", color: "#f0f0f6" },
 
   fieldRow: {
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
@@ -293,7 +293,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 8,
     padding: 14,
     borderWidth: 1,
@@ -306,7 +306,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
@@ -339,7 +339,7 @@ const s = StyleSheet.create({
   updateBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
   logoutBtn: {
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: "center",

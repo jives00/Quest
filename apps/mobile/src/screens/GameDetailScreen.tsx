@@ -505,12 +505,12 @@ function AchievementRow({ a }: { a: Achievement }) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1c1e26",
+    backgroundColor: "#1b2838",
   },
   errorText: { color: "#888", fontSize: 16 },
 
@@ -526,7 +526,7 @@ const s = StyleSheet.create({
     borderRadius: 6,
     marginTop: -40,
     borderWidth: 2,
-    borderColor: "#1c1e26",
+    borderColor: "#1b2838",
   },
   titleInfo: { flex: 1 },
   gameTitle: { color: "#f0f0f6", fontSize: 18, fontWeight: "800", lineHeight: 22 },
@@ -558,7 +558,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
@@ -571,7 +571,7 @@ const s = StyleSheet.create({
     flex: 1,
     height: 34,
     borderRadius: 6,
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -584,7 +584,7 @@ const s = StyleSheet.create({
 
   notesEdit: { gap: 8 },
   notesInput: {
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 8,
     padding: 12,
     color: "#f0f0f6",
@@ -606,7 +606,7 @@ const s = StyleSheet.create({
   scoresRow: { flexDirection: "row", gap: 12 },
   scoreCard: {
     flex: 1,
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 8,
     padding: 12,
     alignItems: "center",
@@ -620,7 +620,7 @@ const s = StyleSheet.create({
   hltbRow: { flexDirection: "row", gap: 10 },
   hltbCard: {
     flex: 1,
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 8,
     padding: 10,
     alignItems: "center",
@@ -634,7 +634,7 @@ const s = StyleSheet.create({
 
   achievementBar: {
     height: 8,
-    backgroundColor: "#323440",
+    backgroundColor: "#313e52",
     borderRadius: 4,
     overflow: "hidden",
     marginBottom: 6,
@@ -663,7 +663,7 @@ const s = StyleSheet.create({
   },
   achGroupCount: { color: "#666", fontSize: 11 },
   achRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  achIcon: { width: 38, height: 38, borderRadius: 6, backgroundColor: "#323440" },
+  achIcon: { width: 38, height: 38, borderRadius: 6, backgroundColor: "#313e52" },
   achIconLocked: { opacity: 0.35 },
   achInfo: { flex: 1 },
   achName: { color: "#f0f0f6", fontSize: 13, fontWeight: "700" },

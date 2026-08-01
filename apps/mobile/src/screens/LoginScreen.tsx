@@ -90,7 +90,7 @@ export default function LoginScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#12141b" },
+  root: { flex: 1, backgroundColor: "#111e2d" },
   inner: { flex: 1, justifyContent: "center", paddingHorizontal: 32 },
   title: {
     fontSize: 36,
@@ -109,7 +109,7 @@ const s = StyleSheet.create({
   },
   form: { gap: 12 },
   input: {
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,

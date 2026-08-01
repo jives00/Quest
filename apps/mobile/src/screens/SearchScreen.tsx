@@ -143,7 +143,7 @@ export default function SearchScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "900", color: "#f0f0f6" },
 
@@ -155,7 +155,7 @@ const s = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -189,7 +189,7 @@ const s = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.05)",
   },
   cover: { width: 48, height: 64, borderRadius: 4 },
-  coverFallback: { backgroundColor: "#323440" },
+  coverFallback: { backgroundColor: "#313e52" },
   info: { flex: 1 },
   name: { color: "#f0f0f6", fontSize: 14, fontWeight: "600" },
   year: { color: "#888", fontSize: 12, marginTop: 2 },

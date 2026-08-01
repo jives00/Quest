@@ -221,12 +221,12 @@ export default function WishlistScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1c1e26",
+    backgroundColor: "#1b2838",
   },
   header: { paddingTop: 16, paddingBottom: 4 },
   headerTop: { paddingHorizontal: 16, paddingBottom: 8 },
@@ -254,7 +254,7 @@ const s = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.05)",
   },
   cover: { width: 44, height: 58, borderRadius: 4 },
-  coverFallback: { backgroundColor: "#323440" },
+  coverFallback: { backgroundColor: "#313e52" },
   info: { flex: 1 },
   name: { color: "#f0f0f6", fontSize: 14, fontWeight: "600" },
   releaseDate: { color: "#888", fontSize: 11, marginTop: 2 },

@@ -256,13 +256,13 @@ function ActivityGraph({ stats }: { stats: DailyPlayStat[] }) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
   content: { flexGrow: 1 },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#1c1e26",
+    backgroundColor: "#1b2838",
   },
 
   header: {
@@ -281,7 +281,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: 16,
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 10,
     padding: 10,
     gap: 10,
@@ -313,13 +313,13 @@ const s = StyleSheet.create({
 
   coverCard: { width: COVER_W },
   coverImg: { width: COVER_W, height: COVER_H, borderRadius: 6 },
-  coverFallback: { backgroundColor: "#323440", justifyContent: "center", alignItems: "center", padding: 6 },
+  coverFallback: { backgroundColor: "#313e52", justifyContent: "center", alignItems: "center", padding: 6 },
   coverFallbackText: { fontSize: 10, color: "#888", textAlign: "center" },
   coverLabel: { fontSize: 11, color: "#d7d8e2", marginTop: 5, lineHeight: 14 },
 
   graphBox: {
     marginHorizontal: 16,
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 10,
     padding: 14,
     borderWidth: 1,

@@ -139,8 +139,8 @@ export default function ListDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1b2838" },
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 20, fontWeight: "900", color: "#f0f0f6" },
   count: { color: "#888", fontSize: 13, marginTop: 2 },
@@ -156,7 +156,7 @@ const s = StyleSheet.create({
     borderBottomColor: "rgba(255,255,255,0.05)",
   },
   cover: { width: 44, height: 58, borderRadius: 4 },
-  coverFallback: { backgroundColor: "#323440" },
+  coverFallback: { backgroundColor: "#313e52" },
   info: { flex: 1 },
   gameName: { color: "#f0f0f6", fontSize: 14, fontWeight: "600" },
   gameStatus: { color: "#888", fontSize: 12, marginTop: 2, textTransform: "capitalize" },

@@ -206,7 +206,7 @@ function DiscoverCard({
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   title: { fontSize: 22, fontWeight: "900", color: "#f0f0f6" },
 
@@ -216,7 +216,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
@@ -231,7 +231,7 @@ const s = StyleSheet.create({
   coverCell: { flex: 1, margin: 4, maxWidth: "33.33%" },
   coverImg: { width: "100%", aspectRatio: 3 / 4, borderRadius: 6 },
   coverFallback: {
-    backgroundColor: "#323440",
+    backgroundColor: "#313e52",
     justifyContent: "center",
     alignItems: "center",
     padding: 6,

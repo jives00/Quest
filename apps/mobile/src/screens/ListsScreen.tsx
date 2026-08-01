@@ -205,8 +205,8 @@ export default function ListsScreen() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#1c1e26" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1c1e26" },
+  root: { flex: 1, backgroundColor: "#1b2838" },
+  center: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#1b2838" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -247,7 +247,7 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   modalBox: {
-    backgroundColor: "#1e2029",
+    backgroundColor: "#1d2a3b",
     borderRadius: 14,
     padding: 20,
     width: 300,
@@ -255,7 +255,7 @@ const s = StyleSheet.create({
   },
   modalTitle: { color: "#f0f0f6", fontWeight: "800", fontSize: 16 },
   modalInput: {
-    backgroundColor: "#262832",
+    backgroundColor: "#253244",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -270,7 +270,7 @@ const s = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: "center",
-    backgroundColor: "#262832",
+    backgroundColor: "#253244",
   },
   modalCancelText: { color: "#888", fontWeight: "600" },
   modalCreate: {
