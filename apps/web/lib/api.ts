@@ -403,7 +403,7 @@ export interface YearStats {
   achievementsUnlocked: number;
   gamesAcquired: number;
   topPlayed: TopGame[];
-  finishedTitles: { gameId: number; title: string; status: string; at: string }[];
+  finishedTitles: { gameId: number; title: string; status: string; at: string; playMinutes: number }[];
 }
 
 // ─── Discover ─────────────────────────────────────────────────────────────────

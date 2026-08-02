@@ -609,7 +609,7 @@ export interface YearStats {
   achievementsUnlocked: number;
   gamesAcquired: number;
   topPlayed: TopGame[];
-  finishedTitles: { gameId: number; title: string; status: string; at: string }[];
+  finishedTitles: { gameId: number; title: string; status: string; at: string; playMinutes: number }[];
 }
 
 /** Distinct years that have any activity, newest first (drives the year picker). */
@@ -725,10 +725,13 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
       [userId, userId, userId, userId, userId, year, userId, year, userId],
     ),
     pool.query<RowDataPacket[]>(
+      // No LIMIT: this doubles as the per-game minutes lookup for the finished
+      // list, so a game finished this year but outside the top 12 by playtime
+      // still needs a row. topPlayed slices to 12 after merging anyway.
       `SELECT g.id AS game_id, g.title, g.cover_path, SUM(ps.duration_min) AS m
          FROM play_sessions ps JOIN games g ON g.id = ps.game_id
         WHERE ps.user_id = ? AND YEAR(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago')) = ?
-        GROUP BY g.id ORDER BY m DESC LIMIT 12`,
+        GROUP BY g.id ORDER BY m DESC`,
       [userId, year],
     ),
     // Finished = game_completions entries that year (source of truth)
@@ -742,7 +745,7 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
          FROM play_history ph JOIN games g ON g.id = ph.game_id
         WHERE ph.user_id = ? AND YEAR(ph.occurred_start) = ?
           AND ph.status = 'completed'
-        ORDER BY at`,
+        ORDER BY at DESC`,
       [userId, year, userId, year],
     ),
   ]);
@@ -769,11 +772,21 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
 
   const hltbExtraGames = hltbRows.length;
 
+  // Same year-attributed minutes topPlayed ranks on, keyed by game so the
+  // finished list can show a per-game figure. The two sources are disjoint --
+  // the supplemental query excludes any game with tracked sessions -- so a
+  // game appears in at most one of them.
+  const yearMinutesByGame = new Map<number, number>();
+  for (const g of [...sessionTopGames, ...hltbTopGames]) {
+    yearMinutesByGame.set(g.gameId, (yearMinutesByGame.get(g.gameId) ?? 0) + g.playMinutes);
+  }
+
   const finishedTitles = finishedRows.map(r => ({
     gameId: r.game_id as number,
     title: r.title as string,
     status: r.status as string,
     at: r.at as string,
+    playMinutes: yearMinutesByGame.get(r.game_id as number) ?? 0,
   }));
 
   return {

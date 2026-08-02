@@ -625,8 +625,10 @@ function YearReview({ token, initialYear, onYearChange }: { token: string; initi
                       <span className="text-sm text-on-surface truncate">{g.title}</span>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">
+                      {g.playMinutes > 0 && (
+                        <span className="text-sm text-on-surface/60 tabular-nums">{fmtHours(g.playMinutes)}</span>
+                      )}
                       {g.at && <span className="text-sm text-on-surface/40">{fmtDateOnly(g.at)}</span>}
-                      <span className="text-sm font-bold uppercase tracking-widest text-accent">{g.status}</span>
                     </div>
                   </Link>
                 ))}
