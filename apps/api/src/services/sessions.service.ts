@@ -10,80 +10,109 @@ import type { PollSource } from '../platforms';
 // Every polling source diffs a cumulative playtime snapshot the same way:
 //  - First sync (no snapshot): record baseline, emit NO session (historical
 //    lifetime time has no date — don't invent one).
-//  - Positive delta within elapsed wall time: emit a derived session (best-effort
-//    timestamps), update total, auto-advance status Unplayed → Playing.
-//  - Positive delta exceeding elapsed wall time: impossible as real play, so treat
-//    it like a first sync — update total, emit NO session, log the anomaly.
+//  - Positive delta that fits its accrual window: emit a derived session ending at
+//    the moment the source says play last happened, update total, auto-advance
+//    status Unplayed → Playing.
+//  - Positive delta that can't fit: treat it like a first sync — update total,
+//    emit NO session, log the anomaly.
 //  - Negative/zero delta: clamp (no session), still update total so the next diff
 //    is correct; log negatives as anomalies.
+//
+// Two things make the "does it fit" test correct, and both matter:
+//
+//  1. The window is measured from `last_progress_at` (the last time we ACCOUNTED
+//     for playtime), not `last_synced_at` (which every poll rewrites). Upstreams
+//     flush cumulative playtime in bursts far larger than one poll interval — a
+//     two-hour sitting can land in a single diff — so charging a delta against one
+//     poll interval rejected ordinary play. It silently discarded ~48% of real
+//     playtime (measured against Steam's own playtime_2weeks), and because the
+//     totals below are a straight copy of the upstream number they stayed correct
+//     the whole time, which is what hid the bug.
+//
+//  2. The session is stamped ending at `lastPlayedAt` — when the source says play
+//     actually happened — not at poll time. A burst flushed hours late otherwise
+//     lands on the wrong day in every stats/history view.
 // ---------------------------------------------------------------------------
+
+// No single derived session is credible past this. The window test alone can't
+// catch a title that newly resolved to this game and folded its whole lifetime
+// total into one diff when the row has sat idle long enough for that total to
+// "fit" — a stale row's window grows without bound, this doesn't.
+const MAX_DERIVED_SESSION_MIN = 24 * 60;
 
 export async function applyPlaytimeDelta(
   userId: number,
   gameId: number,
   source: PollSource,
   newTotalMin: number,
+  lastPlayedAt?: Date | null,
 ): Promise<void> {
   const pool = getPool();
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT total_minutes, last_synced_at FROM playtime_totals WHERE user_id = ? AND game_id = ? AND source = ?`,
+    `SELECT total_minutes, last_synced_at, last_progress_at FROM playtime_totals
+      WHERE user_id = ? AND game_id = ? AND source = ?`,
     [userId, gameId, source],
   );
 
   if (!rows.length) {
+    // Baseline. Everything up to now is accounted for by definition, so the first
+    // real delta is charged against the window starting here.
     await pool.query(
-      `INSERT INTO playtime_totals (user_id, game_id, source, total_minutes, last_synced_at)
-       VALUES (?, ?, ?, ?, NOW())`,
+      `INSERT INTO playtime_totals (user_id, game_id, source, total_minutes, last_synced_at, last_progress_at)
+       VALUES (?, ?, ?, ?, NOW(), NOW())`,
       [userId, gameId, source, newTotalMin],
     );
     return;
   }
 
   const prev = rows[0].total_minutes as number;
-  const lastSyncedAt = rows[0].last_synced_at as Date | null;
   const delta = newTotalMin - prev;
 
   if (delta > 0) {
-    // A derived session can't represent more playtime than the wall-clock time that
-    // actually elapsed since the last successful sync — cap it there. Without this,
-    // a title newly resolving to a game it wasn't matched to before (folding in that
-    // entry's whole lifetime total in one diff) or a transient bad read from an
-    // upstream API (cumulative total briefly inflated, then self-corrects on the next
-    // poll via the delta<0 clamp below) both get recorded as one multi-hour session on
-    // a day the game wasn't even played.
-    const elapsedMin = lastSyncedAt
-      ? Math.max(0, Math.round((Date.now() - lastSyncedAt.getTime()) / 60_000))
-      : delta;
+    const now = new Date();
+    // Pre-036 rows have no progress marker; last_synced_at is the best stand-in.
+    const accountedThrough =
+      (rows[0].last_progress_at as Date | null) ?? (rows[0].last_synced_at as Date | null);
 
-    // A delta larger than the wall-clock time since the last sync cannot be real
-    // play — nobody plays 168 hours between two polls. It means a title newly
-    // resolved to this game and folded in its whole lifetime total, or the
-    // upstream API returned a bad cumulative read. Either way the delta carries
-    // no usable date, so emit no session at all, exactly as a first sync does.
-    //
-    // This previously clamped to elapsedMin and inserted anyway, which traded one
-    // multi-hour phantom session for a small one: a 15-minute session stamped on
-    // the sync date for a game last actually played years earlier. The playtime
-    // is not lost -- the total below still updates, and the year stats spread
-    // that untracked remainder across the years the game was really played.
-    if (delta > elapsedMin) {
+    // Trust the source's "last played" for placement, but never let a skewed
+    // upstream clock stamp a session in the future.
+    const endedAt =
+      lastPlayedAt && lastPlayedAt.getTime() <= now.getTime() ? lastPlayedAt : now;
+
+    // Minutes that could plausibly have been played in the unaccounted window.
+    // A negative window (source reports play older than what we've already
+    // accounted for) collapses to 0, which correctly rejects the delta.
+    const windowMin = accountedThrough
+      ? Math.max(0, Math.round((endedAt.getTime() - accountedThrough.getTime()) / 60_000))
+      : delta;
+    const budgetMin = Math.min(windowMin, MAX_DERIVED_SESSION_MIN);
+
+    if (delta > budgetMin) {
+      // Can't be real play in this window — a title newly resolved to this game and
+      // folded in its whole lifetime total, or the upstream returned a bad
+      // cumulative read (which self-corrects via the delta<0 clamp below). Either
+      // way the delta carries no usable date, so emit no session, exactly as a
+      // first sync does. The playtime is not lost — the total still updates, and
+      // year stats spread that untracked remainder across the years it belongs to.
       console.warn(
         `${source} playtime anomaly: game ${gameId} total jumped ${prev}→${newTotalMin} ` +
-          `(+${delta}min) but only ${elapsedMin}min elapsed since last sync — ` +
-          `recording total without a session`,
+          `(+${delta}min) but only ${budgetMin}min of unaccounted window since ` +
+          `${accountedThrough?.toISOString() ?? 'never'} — recording total without a session`,
       );
     } else {
       await pool.query(
         `INSERT INTO play_sessions
            (user_id, game_id, source, started_at, ended_at, duration_min, derived)
-         VALUES (?, ?, ?, DATE_SUB(NOW(), INTERVAL ? MINUTE), NOW(), ?, 1)`,
-        [userId, gameId, source, delta, delta],
+         VALUES (?, ?, ?, DATE_SUB(?, INTERVAL ? MINUTE), ?, ?, 1)`,
+        [userId, gameId, source, endedAt, delta, endedAt, delta],
       );
     }
+    // Advance the marker on both paths: the minutes are in the total either way, so
+    // a later delta must not be allowed to claim this window a second time.
     await pool.query(
-      `UPDATE playtime_totals SET total_minutes = ?, last_synced_at = NOW()
+      `UPDATE playtime_totals SET total_minutes = ?, last_synced_at = NOW(), last_progress_at = ?
         WHERE user_id = ? AND game_id = ? AND source = ?`,
-      [newTotalMin, userId, gameId, source],
+      [newTotalMin, endedAt, userId, gameId, source],
     );
     await autoAdvanceToPlaying(userId, gameId);
   } else {
@@ -92,6 +121,7 @@ export async function applyPlaytimeDelta(
         `${source} playtime anomaly: game ${gameId} total dropped ${prev}→${newTotalMin} (clamped, no session)`,
       );
     }
+    // No progress — leave last_progress_at alone so the window keeps accruing.
     await pool.query(
       `UPDATE playtime_totals SET total_minutes = ?, last_synced_at = NOW()
         WHERE user_id = ? AND game_id = ? AND source = ?`,

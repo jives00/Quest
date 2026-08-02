@@ -122,7 +122,7 @@ async function syncLibrary(account: PsnAccount): Promise<Map<string, number>> {
   for (const [gameId, agg] of byGame) {
     await recordOwnership(account.userId, gameId, 'psn', agg.lastPlayed);
     // PSN reports cumulative minutes — feed the same session-reconstruction algorithm.
-    await applyPlaytimeDelta(account.userId, gameId, 'psn', agg.minutes);
+    await applyPlaytimeDelta(account.userId, gameId, 'psn', agg.minutes, agg.lastPlayed);
   }
 
   return nameToGame;

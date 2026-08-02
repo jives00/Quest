@@ -161,7 +161,10 @@ async function syncLibrary(account: SteamAccount): Promise<void> {
   for (const [gameId, agg] of byGame) {
     const acquired = agg.lastPlayed ? new Date(agg.lastPlayed * 1000) : null;
     await recordOwnership(account.userId, gameId, 'steam', acquired);
-    await applyPlaytimeDelta(account.userId, gameId, 'steam', agg.minutes);
+    // `acquired` is Steam's rtime_last_played — the only signal for WHEN the delta
+    // was played. Steam flushes playtime_forever well after the fact, so without it
+    // a session lands on poll time instead of the day it happened.
+    await applyPlaytimeDelta(account.userId, gameId, 'steam', agg.minutes, acquired);
   }
 
   // Sync achievements only for recently-played games (bounds API calls).
