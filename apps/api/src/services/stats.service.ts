@@ -881,9 +881,10 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
     playMinutes: asInt(r.m),
     completionCount: 0,
   }));
+  // 18 fills three rows of the six-column grid the year page renders.
   const topPlayed: TopGame[] = [...sessionTopGames, ...hltbTopGames, ...gapOnlyGames]
     .sort((a, b) => b.playMinutes - a.playMinutes)
-    .slice(0, 12);
+    .slice(0, 18);
 
   const hltbExtraGames = hltbRows.length;
 

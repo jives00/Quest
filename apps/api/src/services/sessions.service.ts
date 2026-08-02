@@ -10,8 +10,10 @@ import type { PollSource } from '../platforms';
 // Every polling source diffs a cumulative playtime snapshot the same way:
 //  - First sync (no snapshot): record baseline, emit NO session (historical
 //    lifetime time has no date — don't invent one).
-//  - Positive delta: emit a derived session (best-effort timestamps), update total,
-//    auto-advance status Unplayed → Playing.
+//  - Positive delta within elapsed wall time: emit a derived session (best-effort
+//    timestamps), update total, auto-advance status Unplayed → Playing.
+//  - Positive delta exceeding elapsed wall time: impossible as real play, so treat
+//    it like a first sync — update total, emit NO session, log the anomaly.
 //  - Negative/zero delta: clamp (no session), still update total so the next diff
 //    is correct; log negatives as anomalies.
 // ---------------------------------------------------------------------------
@@ -52,19 +54,32 @@ export async function applyPlaytimeDelta(
     const elapsedMin = lastSyncedAt
       ? Math.max(0, Math.round((Date.now() - lastSyncedAt.getTime()) / 60_000))
       : delta;
-    const sessionMin = Math.min(delta, elapsedMin);
-    if (sessionMin < delta) {
+
+    // A delta larger than the wall-clock time since the last sync cannot be real
+    // play — nobody plays 168 hours between two polls. It means a title newly
+    // resolved to this game and folded in its whole lifetime total, or the
+    // upstream API returned a bad cumulative read. Either way the delta carries
+    // no usable date, so emit no session at all, exactly as a first sync does.
+    //
+    // This previously clamped to elapsedMin and inserted anyway, which traded one
+    // multi-hour phantom session for a small one: a 15-minute session stamped on
+    // the sync date for a game last actually played years earlier. The playtime
+    // is not lost -- the total below still updates, and the year stats spread
+    // that untracked remainder across the years the game was really played.
+    if (delta > elapsedMin) {
       console.warn(
         `${source} playtime anomaly: game ${gameId} total jumped ${prev}→${newTotalMin} ` +
-          `(+${delta}min) but only ${elapsedMin}min elapsed since last sync — session clamped to ${sessionMin}min`,
+          `(+${delta}min) but only ${elapsedMin}min elapsed since last sync — ` +
+          `recording total without a session`,
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO play_sessions
+           (user_id, game_id, source, started_at, ended_at, duration_min, derived)
+         VALUES (?, ?, ?, DATE_SUB(NOW(), INTERVAL ? MINUTE), NOW(), ?, 1)`,
+        [userId, gameId, source, delta, delta],
       );
     }
-    await pool.query(
-      `INSERT INTO play_sessions
-         (user_id, game_id, source, started_at, ended_at, duration_min, derived)
-       VALUES (?, ?, ?, DATE_SUB(NOW(), INTERVAL ? MINUTE), NOW(), ?, 1)`,
-      [userId, gameId, source, sessionMin, sessionMin],
-    );
     await pool.query(
       `UPDATE playtime_totals SET total_minutes = ?, last_synced_at = NOW()
         WHERE user_id = ? AND game_id = ? AND source = ?`,
