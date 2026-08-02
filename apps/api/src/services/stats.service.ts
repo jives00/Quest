@@ -655,14 +655,56 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
         WHERE user_id = ? AND YEAR(acquired_at) = ?`,
       [userId, year],
     ),
-    // Supplemental: hltb/manual playtime for games completed this year that
-    // have no tracked play_sessions in this year (avoids double-counting).
+    // Supplemental: lifetime playtime for games completed this year that Quest
+    // never tracked a session for. Not filtered by source -- a Steam/PSN/Xbox
+    // import writes a lifetime total without creating per-session rows, so
+    // restricting to hltb/manual dropped those games out of the year entirely.
+    //
+    // The NOT EXISTS covers sessions in ANY year, not just this one. A lifetime
+    // total has no per-year breakdown, so a game played across several years
+    // would otherwise have its whole total charged to each year it was
+    // completed in. Once Quest has tracked even one session, the sessions are
+    // the better record and the lifetime total is dropped entirely.
+    //
+    // playtime_totals is keyed by (user_id, game_id, source), so one game can
+    // hold several rows -- a PSN import and an HLTB estimate, say. The `best`
+    // join keeps only the highest-confidence tier per game (manual > platform >
+    // hltb estimate) so the game contributes one row instead of one per source,
+    // and so an HLTB guess never gets added on top of real tracked playtime.
+    // Rows are summed within the winning tier, which only matters for a game
+    // genuinely played on two platforms.
+    //
+    // The `yc` join divides the total by how many distinct years the game was
+    // completed in. A lifetime total has no per-year breakdown, so a game
+    // finished in 2023 and again in 2026 would otherwise report its full total
+    // in both -- inventing hours that were only ever played once. An even split
+    // is still an estimate, but it conserves the lifetime total across the
+    // history instead of inflating it. This only ever affects pre-Quest
+    // playtime: once a game has a tracked session the NOT EXISTS below drops
+    // its lifetime total entirely, and real sessions are already dated.
     pool.query<RowDataPacket[]>(
-      `SELECT pt.game_id, pt.total_minutes AS m, g.title, g.cover_path
+      `SELECT pt.game_id, ROUND(SUM(pt.total_minutes) / yc.years) AS m, g.title, g.cover_path
          FROM playtime_totals pt
          JOIN games g ON g.id = pt.game_id
+         JOIN (
+           SELECT game_id,
+                  MIN(CASE source WHEN 'manual' THEN 0 WHEN 'hltb' THEN 2 ELSE 1 END) AS tier
+             FROM playtime_totals
+            WHERE user_id = ?
+            GROUP BY game_id
+         ) best ON best.game_id = pt.game_id
+               AND (CASE pt.source WHEN 'manual' THEN 0 WHEN 'hltb' THEN 2 ELSE 1 END) = best.tier
+         JOIN (
+           SELECT game_id, COUNT(DISTINCT yr) AS years FROM (
+             SELECT game_id, YEAR(completed_at) AS yr
+               FROM game_completions WHERE user_id = ?
+             UNION
+             SELECT game_id, YEAR(occurred_start)
+               FROM play_history
+              WHERE user_id = ? AND status = 'completed' AND occurred_start IS NOT NULL
+           ) u GROUP BY game_id
+         ) yc ON yc.game_id = pt.game_id
         WHERE pt.user_id = ?
-          AND pt.source IN ('hltb', 'manual')
           AND (
             EXISTS (
               SELECT 1 FROM game_completions
@@ -678,9 +720,9 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
           AND NOT EXISTS (
             SELECT 1 FROM play_sessions ps
              WHERE ps.user_id = ? AND ps.game_id = pt.game_id
-               AND YEAR(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago')) = ?
-          )`,
-      [userId, userId, year, userId, year, userId, year],
+          )
+        GROUP BY pt.game_id, g.title, g.cover_path, yc.years`,
+      [userId, userId, userId, userId, userId, year, userId, year, userId],
     ),
     pool.query<RowDataPacket[]>(
       `SELECT g.id AS game_id, g.title, g.cover_path, SUM(ps.duration_min) AS m

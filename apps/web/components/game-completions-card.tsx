@@ -3,8 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type GameCompletion, type GameStatus } from "@/lib/api";
 
+// Completion dates are date-only values stored as UTC midnight, and the year
+// stats bucket them with a raw YEAR(completed_at) -- no timezone conversion. So
+// they have to render in UTC too; formatting in local time pulls a Jan 1 entry
+// back to Dec 31 for UTC-offset users and makes the game look like it belongs
+// to the previous year. Matches fmtDateOnly in app/stats/page.tsx.
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
+    timeZone: "UTC",
     year: "numeric",
     month: "short",
     day: "numeric",
