@@ -220,15 +220,26 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
         GROUP BY g.id`,
       [userId],
     ),
+    // Completions are pre-aggregated to one row per (game, user) BEFORE the join.
+    // Joining game_completions directly fans each playtime_totals row out once per
+    // completion, and SUM(pt.total_minutes) then counts the same minutes once per
+    // completion -- a game completed twice reported double its playtime (Stardew
+    // Valley: 485.9h -> 971.8h). COUNT(DISTINCT gc.id) hid it by staying correct
+    // next to a SUM that was not. It also corrupted the ranking, since ORDER BY and
+    // LIMIT 12 both ran on the inflated value.
     pool.query<RowDataPacket[]>(
       `SELECT g.id AS game_id, g.title, g.cover_path,
               SUM(pt.total_minutes) AS m,
-              COUNT(DISTINCT gc.id) AS completions
+              COALESCE(gc.completions, 0) AS completions
          FROM playtime_totals pt
          JOIN games g ON g.id = pt.game_id
-         LEFT JOIN game_completions gc ON gc.game_id = g.id AND gc.user_id = pt.user_id
+         LEFT JOIN (
+           SELECT game_id, user_id, COUNT(*) AS completions
+             FROM game_completions
+            GROUP BY game_id, user_id
+         ) gc ON gc.game_id = g.id AND gc.user_id = pt.user_id
         WHERE pt.user_id = ?
-        GROUP BY g.id ORDER BY m DESC LIMIT 12`,
+        GROUP BY g.id, gc.completions ORDER BY m DESC LIMIT 12`,
       [userId],
     ),
     // Heatmap (all-time, frontend windows to last 365 days). No date filter
