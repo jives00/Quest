@@ -1,5 +1,10 @@
 ﻿"use client";
 
+// Explicit type import, not the ambient React namespace -- see the note in
+// lib/auth-context.tsx: the ambient namespace resolves to React 19's types via
+// Next's own declarations, which are incompatible with the React 18 types an
+// explicit import gives you.
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -265,7 +270,7 @@ const BUILTIN_PLATFORMS: { slug: string; label: string; integration: string }[] 
   { slug: "meta_quest", label: "Meta Quest",        integration: "Library Imports" },
 ];
 
-const BUILTIN_PLATFORM_ICONS: Record<string, React.ReactNode> = {
+const BUILTIN_PLATFORM_ICONS: Record<string, ReactNode> = {
   steam: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="w-5 h-5"><path d="M11.979 0C5.678 0 .511 4.86.022 11.037l6.432 2.658c.545-.371 1.203-.59 1.912-.59.063 0 .125.004.188.006l2.861-4.142V8.91c0-2.495 2.028-4.524 4.524-4.524 2.494 0 4.524 2.031 4.524 4.527s-2.03 4.525-4.524 4.525h-.105l-4.076 2.911c0 .052.004.105.004.159 0 1.875-1.515 3.396-3.39 3.396-1.635 0-3.016-1.173-3.331-2.727L.436 15.27C1.862 20.307 6.486 24 11.979 24c6.627 0 11.999-5.373 11.999-12S18.605 0 11.979 0zM7.54 18.21l-1.473-.61c.262.543.714.999 1.314 1.25 1.297.539 2.793-.076 3.332-1.375.263-.63.264-1.319.005-1.949s-.75-1.121-1.377-1.383c-.624-.26-1.29-.249-1.878-.03l1.523.63c.956.4 1.409 1.5 1.009 2.455-.397.957-1.497 1.41-2.454 1.012H7.54zm11.415-9.303c0-1.662-1.353-3.015-3.015-3.015-1.665 0-3.015 1.353-3.015 3.015 0 1.665 1.35 3.015 3.015 3.015 1.663 0 3.015-1.35 3.015-3.015zm-5.273-.005c0-1.252 1.013-2.266 2.265-2.266 1.249 0 2.266 1.014 2.266 2.266 0 1.251-1.017 2.265-2.266 2.265-1.253 0-2.265-1.014-2.265-2.265z" /></svg>,
   psn: <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="w-5 h-5"><path d="M8.985 2.596v17.548l3.915 1.261V6.688c0-.69.304-1.151.794-.998.636.19.762.84.762 1.529v5.372c2.689 1.088 4.718-.169 4.718-3.53 0-3.44-1.194-4.988-4.688-6.076 0 0-3.037-.987-5.501-.389zM7.641 20.26c-2.69.239-4.73-1.075-4.73-2.963 0-1.79 1.567-3.272 4.33-3.862v2.01c-1.213.353-2.148.965-2.148 1.894 0 .995 1.002 1.494 2.548 1.214v1.707z" /></svg>,
   xbox: <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden className="w-5 h-5"><path d="M7.202 15.967a8 8 0 0 1-3.552-1.26c-.898-.585-1.101-.826-1.101-1.306 0-.965 1.062-2.656 2.879-4.583C6.459 7.723 7.897 6.44 8.052 6.475c.302.068 2.718 2.423 3.622 3.531 1.43 1.753 2.088 3.189 1.754 3.829-.254.486-1.83 1.437-2.987 1.802-.954.301-2.207.429-3.239.33m-5.866-3.57C.589 11.253.212 10.127.03 8.497c-.06-.539-.038-.846.137-1.95.218-1.377 1.002-2.97 1.945-3.95.401-.417.437-.427.926-.263.595.2 1.23.638 2.213 1.528l.574.519-.313.385C4.056 6.553 2.52 9.086 1.94 10.653c-.315.852-.442 1.707-.306 2.063.091.24.007.15-.3-.319Zm13.101.195c.074-.36-.019-1.02-.238-1.687-.473-1.443-2.055-4.128-3.508-5.953l-.457-.575.494-.454c.646-.593 1.095-.948 1.58-1.25.381-.237.927-.448 1.161-.448.145 0 .654.528 1.065 1.104a8.4 8.4 0 0 1 1.343 3.102c.153.728.166 2.286.024 3.012a9.5 9.5 0 0 1-.6 1.893c-.179.393-.624 1.156-.82 1.404-.1.128-.1.127-.043-.148ZM7.335 1.952c-.67-.34-1.704-.705-2.276-.803a4 4 0 0 0-.759-.043c-.471.024-.45 0 .306-.358A7.8 7.8 0 0 1 6.47.128c.8-.169 2.306-.17 3.094-.005.85.18 1.853.552 2.418.9l.168.103-.385-.02c-.766-.038-1.88.27-3.078.853-.361.176-.676.316-.699.312a12 12 0 0 1-.654-.319Z" /></svg>,
@@ -285,7 +290,7 @@ function PlatformRow({
   onEdit,
   onDelete,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   name: string;
   badge?: string;
   onEdit: () => void;
@@ -329,7 +334,7 @@ function EditRow({
   onSave: () => void;
   onCancel: () => void;
   namePlaceholder?: string;
-  svgPreview?: React.ReactNode;
+  svgPreview?: ReactNode;
 }) {
   return (
     <div className="flex items-center gap-2 px-4 py-3 bg-surface-container-low border border-accent/30">

@@ -1,5 +1,12 @@
 "use client";
 
+// ReactNode is imported rather than reached through the ambient React namespace
+// on purpose. Next's own .d.ts files do a bare `import from 'react'`, which pnpm
+// resolves upward to the @types/react@19 copy that exists only because the
+// mobile app is in this workspace -- so the ambient namespace is React 19 while
+// an explicit import is React 18. Their ReactNode types differ (19 adds bigint),
+// and mixing the two makes identical-looking annotations incompatible.
+import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { api, refreshAccessToken, setAuthHandlers } from "./api";
 
@@ -15,7 +22,7 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
