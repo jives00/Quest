@@ -631,6 +631,57 @@ export async function getAvailableYears(userId: number): Promise<number[]> {
 export async function getYearStats(userId: number, year: number): Promise<YearStats> {
   const pool = getPool();
 
+  // Years to charge undated playtime to. Completions outrank sessions: a
+  // completion says the game was actually being played that year, whereas a
+  // lone session can be a sync artifact or a single launch. Weighting those
+  // equally let one 2026 launch pull half of a game's lifetime hours into 2026
+  // for a game finished back in 2024. Session years therefore only count for
+  // games with no completion records at all -- those have nothing better.
+  //
+  // Sessions are still counted in full on their own; this only decides where
+  // the *untracked remainder* lands.
+  const NO_COMPLETION_RECORDS = `
+    NOT EXISTS (
+      SELECT 1 FROM game_completions gc
+       WHERE gc.user_id = ? AND gc.game_id = ps.game_id
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM play_history ph
+       WHERE ph.user_id = ? AND ph.game_id = ps.game_id
+         AND ph.status = 'completed' AND ph.occurred_start IS NOT NULL
+    )`;
+
+  const EVIDENCE_YEARS = `
+    SELECT game_id, COUNT(DISTINCT yr) AS years FROM (
+      SELECT game_id, YEAR(completed_at) AS yr FROM game_completions WHERE user_id = ?
+      UNION
+      SELECT game_id, YEAR(occurred_start) FROM play_history
+       WHERE user_id = ? AND status = 'completed' AND occurred_start IS NOT NULL
+      UNION
+      SELECT ps.game_id, YEAR(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago'))
+        FROM play_sessions ps
+       WHERE ps.user_id = ? AND ${NO_COMPLETION_RECORDS}
+    ) u GROUP BY game_id`;
+
+  // Whether THIS year is one of those years, for the game in the outer query.
+  const IS_EVIDENCE_YEAR = `
+    EXISTS (
+      SELECT 1 FROM game_completions
+       WHERE user_id = ? AND game_id = pt.game_id AND YEAR(completed_at) = ?
+    )
+    OR EXISTS (
+      SELECT 1 FROM play_history
+       WHERE user_id = ? AND game_id = pt.game_id
+         AND status = 'completed' AND occurred_start IS NOT NULL
+         AND YEAR(occurred_start) = ?
+    )
+    OR EXISTS (
+      SELECT 1 FROM play_sessions ps
+       WHERE ps.user_id = ? AND ps.game_id = pt.game_id
+         AND YEAR(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago')) = ?
+         AND ${NO_COMPLETION_RECORDS}
+    )`;
+
   const [
     [[playRow]],
     [[achRow]],
@@ -638,6 +689,7 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
     [hltbRows],
     [topRows],
     [finishedRows],
+    [gapRows],
   ] = await Promise.all([
     pool.query<RowDataPacket[]>(
       `SELECT COALESCE(SUM(duration_min),0) AS m, COUNT(*) AS n,
@@ -748,15 +800,78 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
         ORDER BY at DESC`,
       [userId, year, userId, year],
     ),
+    // A platform total is cumulative from purchase, but Quest only has sessions
+    // from when it started syncing -- so a game can show 72h on Steam against
+    // 49h of tracked sessions. That remainder is real playtime with no date.
+    // It gets spread evenly over the years the game shows evidence of being
+    // played, so a game finished in 2018 and replayed in 2026 doesn't dump its
+    // whole pre-Quest history onto 2026.
+    //
+    // This is the mirror of the supplemental query above: that one handles
+    // games with no sessions at all, this one games that have some. The
+    // INNER JOIN on tracked totals keeps the two sets disjoint.
+    pool.query<RowDataPacket[]>(
+      `SELECT pt.game_id, g.title, g.cover_path,
+              ROUND(GREATEST(SUM(pt.total_minutes) - tr.tracked, 0) / ev.years) AS m
+         FROM playtime_totals pt
+         JOIN games g ON g.id = pt.game_id
+         JOIN (
+           SELECT game_id,
+                  MIN(CASE source WHEN 'manual' THEN 0 WHEN 'hltb' THEN 2 ELSE 1 END) AS tier
+             FROM playtime_totals
+            WHERE user_id = ?
+            GROUP BY game_id
+         ) best ON best.game_id = pt.game_id
+               AND (CASE pt.source WHEN 'manual' THEN 0 WHEN 'hltb' THEN 2 ELSE 1 END) = best.tier
+         JOIN (
+           SELECT game_id, SUM(duration_min) AS tracked
+             FROM play_sessions WHERE user_id = ? GROUP BY game_id
+         ) tr ON tr.game_id = pt.game_id
+         JOIN (${EVIDENCE_YEARS}) ev ON ev.game_id = pt.game_id
+        WHERE pt.user_id = ?
+          AND (${IS_EVIDENCE_YEAR})
+        GROUP BY pt.game_id, g.title, g.cover_path, tr.tracked, ev.years
+       HAVING m > 0`,
+      [
+        userId,                                  // best-tier subquery
+        userId,                                  // tracked-session totals
+        userId, userId, userId, userId, userId,  // EVIDENCE_YEARS
+        userId,                                  // pt.user_id
+        userId, year,                            // IS_EVIDENCE_YEAR: completions
+        userId, year,                            //   play_history
+        userId, year, userId, userId,            //   sessions + NO_COMPLETION_RECORDS
+      ],
+    ),
   ]);
   const hltbExtraMinutes = hltbRows.reduce((s: number, r: RowDataPacket) => s + asInt(r.m), 0);
+
+  // This year's share of platform playtime that no session accounts for.
+  const gapMinutes = new Map<number, number>();
+  for (const r of gapRows as RowDataPacket[]) {
+    gapMinutes.set(r.game_id as number, asInt(r.m));
+  }
+  const gapExtraMinutes = [...gapMinutes.values()].reduce((s, m) => s + m, 0);
+
   const sessionTopGames: TopGame[] = topRows.map(r => ({
     gameId: r.game_id as number,
     title: r.title as string,
     coverPath: r.cover_path as string | null,
-    playMinutes: asInt(r.m),
+    playMinutes: asInt(r.m) + (gapMinutes.get(r.game_id as number) ?? 0),
     completionCount: 0,
   }));
+
+  // A game can earn a gap share in a year it has no sessions -- completed in
+  // 2018, replayed with tracking in 2026 -- so 2018 needs a row of its own.
+  const sessionGameIds = new Set(topRows.map(r => r.game_id as number));
+  const gapOnlyGames: TopGame[] = (gapRows as RowDataPacket[])
+    .filter(r => !sessionGameIds.has(r.game_id as number))
+    .map(r => ({
+      gameId: r.game_id as number,
+      title: r.title as string,
+      coverPath: r.cover_path as string | null,
+      playMinutes: asInt(r.m),
+      completionCount: 0,
+    }));
 
   // Merge session top games with hltb/manual games (already excluded from sessions above)
   const hltbTopGames: TopGame[] = (hltbRows as RowDataPacket[]).map(r => ({
@@ -766,18 +881,19 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
     playMinutes: asInt(r.m),
     completionCount: 0,
   }));
-  const topPlayed: TopGame[] = [...sessionTopGames, ...hltbTopGames]
+  const topPlayed: TopGame[] = [...sessionTopGames, ...hltbTopGames, ...gapOnlyGames]
     .sort((a, b) => b.playMinutes - a.playMinutes)
     .slice(0, 12);
 
   const hltbExtraGames = hltbRows.length;
 
   // Same year-attributed minutes topPlayed ranks on, keyed by game so the
-  // finished list can show a per-game figure. The two sources are disjoint --
-  // the supplemental query excludes any game with tracked sessions -- so a
-  // game appears in at most one of them.
+  // finished list can show a per-game figure. The sources are disjoint by
+  // construction -- the supplemental query takes games with no sessions, the
+  // gap query games with some, and gapOnlyGames excludes anything already in
+  // sessionTopGames -- so a game appears in exactly one of them.
   const yearMinutesByGame = new Map<number, number>();
-  for (const g of [...sessionTopGames, ...hltbTopGames]) {
+  for (const g of [...sessionTopGames, ...hltbTopGames, ...gapOnlyGames]) {
     yearMinutesByGame.set(g.gameId, (yearMinutesByGame.get(g.gameId) ?? 0) + g.playMinutes);
   }
 
@@ -791,9 +907,9 @@ export async function getYearStats(userId: number, year: number): Promise<YearSt
 
   return {
     year,
-    playMinutes: asInt(playRow.m) + hltbExtraMinutes,
+    playMinutes: asInt(playRow.m) + hltbExtraMinutes + gapExtraMinutes,
     sessionCount: asInt(playRow.n),
-    gamesPlayed: asInt(playRow.g) + hltbExtraGames,
+    gamesPlayed: asInt(playRow.g) + hltbExtraGames + gapOnlyGames.length,
     gamesFinished: finishedTitles.length,
     achievementsUnlocked: asInt(achRow.n),
     gamesAcquired: asInt(acqRow.n),
