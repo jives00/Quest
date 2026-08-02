@@ -269,9 +269,9 @@ export function GameMetadataEditor({
             <label className={labelCls}>Cover art (box / portrait)</label>
             <div className="flex gap-4 mb-3">
               {coverPath ? (
-                <img src={coverPath} alt="" className="w-24 aspect-[264/374] object-cover rounded-lg shrink-0 shadow-lg" />
+                <img src={coverPath} alt="" className="w-24 aspect-[264/374] object-cover shrink-0 shadow-lg" />
               ) : (
-                <div className="w-24 aspect-[264/374] rounded-lg bg-surface-container shrink-0" />
+                <div className="w-24 aspect-[264/374] bg-surface-container shrink-0" />
               )}
               <div className="flex-1 flex flex-col gap-2">
                 <input
@@ -296,7 +296,7 @@ export function GameMetadataEditor({
                   <button
                     key={url}
                     onClick={() => setCoverPath(url)}
-                    className={`rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`overflow-hidden border-2 transition-all ${
                       coverPath === url ? "border-accent scale-[0.97]" : "border-transparent hover:border-outline-variant"
                     }`}
                   >
@@ -315,9 +315,9 @@ export function GameMetadataEditor({
             <label className={labelCls}>Hero banner (wide / landscape)</label>
             <div className="mb-3">
               {heroPath ? (
-                <img src={heroPath} alt="" className="w-full aspect-[16/5] object-cover rounded-lg shadow-lg mb-2" />
+                <img src={heroPath} alt="" className="w-full aspect-[16/5] object-cover shadow-lg mb-2" />
               ) : (
-                <div className="w-full aspect-[16/5] rounded-lg bg-surface-container mb-2" />
+                <div className="w-full aspect-[16/5] bg-surface-container mb-2" />
               )}
               <div className="flex gap-2">
                 <input
@@ -342,7 +342,7 @@ export function GameMetadataEditor({
                   <button
                     key={url}
                     onClick={() => setHeroPath(url)}
-                    className={`rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`overflow-hidden border-2 transition-all ${
                       heroPath === url ? "border-accent scale-[0.98]" : "border-transparent hover:border-outline-variant"
                     }`}
                   >
@@ -371,7 +371,7 @@ export function GameMetadataEditor({
               className={inputCls}
             />
             {trailerInput.trim() && (
-              <div className="relative w-full rounded-xl overflow-hidden mt-3" style={{ aspectRatio: "16/9" }}>
+              <div className="relative w-full overflow-hidden mt-3" style={{ aspectRatio: "16/9" }}>
                 <iframe
                   key={extractYouTubeId(trailerInput.trim())}
                   src={`https://www.youtube.com/embed/${extractYouTubeId(trailerInput.trim())}`}
@@ -403,7 +403,7 @@ export function GameMetadataEditor({
                     key={id}
                     onClick={() => setScreenshotIds((prev) => prev.filter((s) => s !== id))}
                     title="Click to remove"
-                    className="relative group rounded-lg overflow-hidden shrink-0"
+                    className="relative group overflow-hidden shrink-0"
                   >
                     <img
                       src={`https://images.igdb.com/igdb/image/upload/t_screenshot_med/${id}.jpg`}
@@ -557,7 +557,7 @@ export function ModalShell({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/60 backdrop-blur-sm p-4 sm:p-8" onClick={onClose}>
       <div
-        className={`glass-panel rounded-2xl w-full my-auto p-6 shadow-2xl ${wide ? "max-w-5xl" : "max-w-3xl"}`}
+        className={`glass-panel w-full my-auto p-6 shadow-2xl ${wide ? "max-w-5xl" : "max-w-3xl"}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">

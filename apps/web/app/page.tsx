@@ -201,7 +201,7 @@ function PlaytimeBarChart({ data }: { data: DailyPlayStat[] }) {
           <p className="text-sm text-on-surface/50 mt-1 ml-4">{formatMinutes(totalMin)} played</p>
         )}
       </div>
-      <div className="glass-panel p-5 rounded-xl">
+      <div className="glass-panel p-5">
         <div className="h-48">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ left: 0, right: 0, bottom: 0 }}>

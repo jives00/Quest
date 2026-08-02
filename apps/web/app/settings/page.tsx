@@ -139,7 +139,7 @@ export default function SettingsPage() {
           <div className="px-8 py-8">
             <h1 className="text-2xl font-black tracking-tight text-on-surface mb-6">Integrations</h1>
             <div className="flex flex-col gap-4 max-w-2xl">
-              <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5">
+              <div className="bg-surface-container-low border border-outline-variant/20 p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="font-semibold text-on-surface">Steam</span>
                   {steam && (
@@ -292,7 +292,7 @@ function PlatformRow({
   onDelete?: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20">
+    <div className="flex items-center gap-3 px-4 py-3 bg-surface-container-low border border-outline-variant/20">
       <span className="shrink-0 w-7 flex items-center justify-center text-on-surface/60">{icon}</span>
       <span className="text-sm font-medium text-on-surface flex-1">{name}</span>
       {badge && (
@@ -332,7 +332,7 @@ function EditRow({
   svgPreview?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-surface-container-low border border-accent/30">
+    <div className="flex items-center gap-2 px-4 py-3 bg-surface-container-low border border-accent/30">
       <IconPicker value={iconValue} onChange={onIconChange} svgPreview={svgPreview} />
       <input
         value={nameValue}
@@ -604,7 +604,7 @@ function AccountPanel({ token }: { token: string }) {
           <p className={`text-sm ${msg.ok ? "text-accent" : "text-red-400"}`}>{msg.text}</p>
         )}
 
-        <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5">
+        <div className="bg-surface-container-low border border-outline-variant/20 p-5">
           <h2 className="text-sm font-bold text-on-surface mb-4">Change username</h2>
           <form onSubmit={saveUsername} className="flex flex-col gap-3">
             <div>
@@ -628,7 +628,7 @@ function AccountPanel({ token }: { token: string }) {
           </form>
         </div>
 
-        <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5">
+        <div className="bg-surface-container-low border border-outline-variant/20 p-5">
           <h2 className="text-sm font-bold text-on-surface mb-4">Change password</h2>
           <form onSubmit={savePassword} className="flex flex-col gap-3">
             <div>
@@ -680,7 +680,7 @@ function ExportPanel({ token }: { token: string }) {
       <p className="text-sm text-on-surface/50 mb-8">
         Download all your Quest data as an Excel workbook (.xlsx).
       </p>
-      <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-6 max-w-md">
+      <div className="bg-surface-container-low border border-outline-variant/20 p-6 max-w-md">
         <h2 className="text-sm font-bold text-on-surface mb-1">Full data export</h2>
         <p className="text-xs text-on-surface/50 mb-5">
           Includes three sheets: <strong>Library</strong> (all owned games with status, playtime, rating, and completion),{" "}
@@ -734,7 +734,7 @@ function ProvisionalRow({
   }
 
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-4">
+    <div className="bg-surface-container-low border border-outline-variant/20 p-4">
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="font-semibold text-on-surface">{match.title}</p>
@@ -811,7 +811,7 @@ function DuplicateRow({
   }
 
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-4">
+    <div className="bg-surface-container-low border border-outline-variant/20 p-4">
       <p className="text-[11px] text-on-surface/40 mb-3">
         Possible same game · {(cand.score * 100).toFixed(0)}% title match
       </p>
@@ -875,7 +875,7 @@ function GamePicker({
       <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface/40 mb-2">{label}</p>
       {picked ? (
         <div className="flex items-center gap-2 p-2 rounded-lg bg-accent/10 border border-accent/30">
-          {picked.coverPath && <img src={picked.coverPath} alt="" className="w-8 h-10 object-cover rounded shrink-0" />}
+          {picked.coverPath && <img src={picked.coverPath} alt="" className="w-8 h-10 object-cover shrink-0" />}
           <span className="text-sm text-on-surface font-semibold truncate">{picked.title}</span>
           <button onClick={onClear} className="ml-auto text-on-surface/40 hover:text-on-surface material-symbols-outlined text-sm">close</button>
         </div>
@@ -897,7 +897,7 @@ function GamePicker({
             <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
               {results.map((g) => (
                 <button key={g.id} onClick={() => onPick(g)} className="flex items-center gap-2 text-left p-2 rounded hover:bg-surface-container transition-colors">
-                  {g.coverPath && <img src={g.coverPath} alt="" className="w-7 h-9 object-cover rounded shrink-0" />}
+                  {g.coverPath && <img src={g.coverPath} alt="" className="w-7 h-9 object-cover shrink-0" />}
                   <span className="text-sm text-on-surface truncate">{g.title}</span>
                 </button>
               ))}
@@ -932,7 +932,7 @@ function ManualMergePanel({ token, onMerged }: { token: string; onMerged: () => 
   }
 
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5">
+    <div className="bg-surface-container-low border border-outline-variant/20 p-5">
       <p className="text-xs text-on-surface/50 mb-4">
         Search for two games from your library, then choose which one to keep. All playtime, achievements, and ratings from the removed game will be merged into the kept one.
       </p>
@@ -983,7 +983,7 @@ function PsnCard({ account, token, onChange }: { account?: PlatformAccount; toke
   }
 
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5">
+    <div className="bg-surface-container-low border border-outline-variant/20 p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="font-semibold text-on-surface">PlayStation {account?.hasNpsso && <span className="text-xs text-on-surface/40 font-normal">· connected</span>}</span>
         <HealthChip account={account} />
@@ -1034,7 +1034,7 @@ function XboxCard({ account, token, onChange }: { account?: PlatformAccount; tok
   }
 
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5">
+    <div className="bg-surface-container-low border border-outline-variant/20 p-5">
       <div className="flex items-center justify-between mb-3">
         <span className="font-semibold text-on-surface">
           Xbox / Game Pass{" "}
@@ -1106,7 +1106,7 @@ function ManualImportPanel({
   const account = isBuiltin ? accounts.find((a) => a.platform === source) : undefined;
 
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5 max-w-2xl">
+    <div className="bg-surface-container-low border border-outline-variant/20 p-5 max-w-2xl">
       <div className="flex items-center gap-3 mb-4">
         <select
           value={source}

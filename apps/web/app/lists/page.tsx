@@ -266,7 +266,7 @@ export default function ListsPage() {
                         onClick={() => saveGameNavContext(detail.games.map((g) => g.id), selectedList?.name ?? "List")}
                       />
                       {looksD && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-end pb-2 bg-black/50 rounded-lg">
+                        <div className="absolute inset-0 flex flex-col items-center justify-end pb-2 bg-black/50">
                           <span className="text-[9px] font-bold uppercase tracking-widest text-yellow-400 bg-black/60 px-1.5 py-0.5 rounded mb-1">
                             looks done
                           </span>

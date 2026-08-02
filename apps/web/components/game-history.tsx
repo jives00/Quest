@@ -90,7 +90,7 @@ export function GameHistory({ gameId, token }: { gameId: number; token: string }
           {items.map((item, i) => (
             <li
               key={`${item.kind}-${item.manualId ?? i}`}
-              className="flex items-center gap-3 bg-surface-container-low rounded-lg border border-outline-variant/20 px-4 py-2.5"
+              className="flex items-center gap-3 bg-surface-container-low border border-outline-variant/20 px-4 py-2.5"
             >
               <span className="material-symbols-outlined text-on-surface/40 text-[20px]">{KIND_ICON[item.kind]}</span>
               <div className="flex-1 min-w-0">
@@ -158,7 +158,7 @@ function AddMemoryForm({ gameId, token, onAdded }: { gameId: number; token: stri
     precision === "year" ? "2008" : precision === "month" ? "2008-06" : "2008-06-21";
 
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-4 mb-4 flex flex-col gap-3">
+    <div className="bg-surface-container-low border border-outline-variant/20 p-4 mb-4 flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
         {(["exact", "day", "month", "year", "era"] as HistoryPrecision[]).map((p) => (
           <button

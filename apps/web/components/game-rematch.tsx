@@ -112,9 +112,9 @@ export function GameRematch({
             className="flex items-center gap-3 text-left p-2 rounded-lg hover:bg-surface-container transition-colors disabled:opacity-50"
           >
             {r.coverUrl ? (
-              <img src={r.coverUrl} alt="" className="w-10 h-[52px] object-cover rounded shrink-0" />
+              <img src={r.coverUrl} alt="" className="w-10 h-[52px] object-cover shrink-0" />
             ) : (
-              <div className="w-10 h-[52px] rounded bg-surface-container shrink-0" />
+              <div className="w-10 h-[52px] bg-surface-container shrink-0" />
             )}
             <div className="flex-1 min-w-0">
               <p className="text-base text-on-surface leading-tight">{r.name}</p>

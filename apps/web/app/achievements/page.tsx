@@ -24,15 +24,15 @@ function AchievementCard({ achievement }: { achievement: AllAchievement }) {
   const rarity = achievement.globalPct != null ? rarityLabel(achievement.globalPct) : null;
 
   return (
-    <div className="bg-surface-container rounded-lg px-4 py-3 flex items-center gap-4">
+    <div className="bg-surface-container px-4 py-3 flex items-center gap-4">
       {achievement.icon ? (
         <img
           src={achievement.icon}
           alt=""
-          className={`self-stretch w-auto max-h-16 rounded shrink-0 ${!unlocked ? "opacity-40 grayscale" : ""}`}
+          className={`self-stretch w-auto max-h-16 shrink-0 ${!unlocked ? "opacity-40 grayscale" : ""}`}
         />
       ) : (
-        <div className="self-stretch max-h-16 aspect-square rounded bg-surface-container-high flex items-center justify-center shrink-0">
+        <div className="self-stretch max-h-16 aspect-square bg-surface-container-high flex items-center justify-center shrink-0">
           <span className="material-symbols-outlined text-on-surface/20 text-xl">emoji_events</span>
         </div>
       )}

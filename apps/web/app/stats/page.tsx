@@ -118,7 +118,7 @@ export default function StatsPage() {
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="bg-surface-container rounded-xl border border-outline-variant/20 p-5">
+    <div className="bg-surface-container border border-outline-variant/20 p-5">
       <p className="text-sm font-bold uppercase tracking-widest text-on-surface/40">{label}</p>
       <p className="text-2xl font-black text-on-surface mt-1">{value}</p>
       {hint && <p className="text-sm text-on-surface/40 mt-0.5">{hint}</p>}
@@ -132,7 +132,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-surface-container rounded-xl border border-outline-variant/20 ${className}`}>
+    <div className={`bg-surface-container border border-outline-variant/20 ${className}`}>
       {children}
     </div>
   );
@@ -168,7 +168,7 @@ function ActivityFeed({ events }: { events: ActivityEvent[] }) {
         if (e.type === "ownership") label = `Added to ${PLATFORM_LABELS[e.extra ?? ""] ?? e.extra} library`;
         return (
           <Link key={i} href={`/games/${e.gameId}`} className="flex items-center gap-3 px-4 py-4 hover:bg-on-surface/5 transition-colors">
-            <div className="shrink-0 w-12 h-16 rounded-md overflow-hidden bg-surface-container relative">
+            <div className="shrink-0 w-12 h-16 overflow-hidden bg-surface-container relative">
               {e.type === "achievement" && e.extra ? (
                 <img src={e.extra} alt="" className="w-full h-full object-cover" />
               ) : e.coverPath ? (
@@ -268,7 +268,7 @@ function CalendarHeatmap({ heatmap }: { heatmap: { date: string; minutes: number
               return (
                 <div key={date} className="relative group w-full aspect-square">
                   <div
-                    className="w-full h-full rounded-sm bg-accent"
+                    className="w-full h-full bg-accent"
                     style={{ opacity: minutes === 0 ? 0.08 : 0.2 + intensity * 0.8 }}
                   />
                   <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 hidden group-hover:flex flex-col items-center">
@@ -461,7 +461,7 @@ function Lifetime({ token }: { token: string }) {
           <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 gap-4">
             {stats.rarityAchievements.map((a) => (
               <Link key={`${a.gameId}-${a.apiName}`} href={`/games/${a.gameId}`} className="group">
-                <div className="aspect-square rounded-lg overflow-hidden bg-surface-container border border-outline-variant/20">
+                <div className="aspect-square overflow-hidden bg-surface-container border border-outline-variant/20">
                   {a.icon ? (
                     <img src={a.icon} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   ) : (
@@ -489,7 +489,7 @@ function Lifetime({ token }: { token: string }) {
           <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 gap-4">
             {stats.perfectGames.map((g) => (
               <Link key={g.gameId} href={`/games/${g.gameId}`} className="group">
-                <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface-container border border-outline-variant/20 relative">
+                <div className="aspect-[3/4] overflow-hidden bg-surface-container border border-outline-variant/20 relative">
                   {g.coverPath && (
                     <img src={g.coverPath} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   )}
@@ -512,7 +512,7 @@ function Lifetime({ token }: { token: string }) {
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
             {stats.topPlayed.map((g) => (
               <Link key={g.gameId} href={`/games/${g.gameId}`} className="group">
-                <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface-container border border-outline-variant/20">
+                <div className="aspect-[3/4] overflow-hidden bg-surface-container border border-outline-variant/20">
                   {g.coverPath && (
                     <img src={g.coverPath} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   )}
@@ -600,7 +600,7 @@ function YearReview({ token, initialYear, onYearChange }: { token: string; initi
               <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-4">
                 {data.topPlayed.map((g) => (
                   <Link key={g.gameId} href={`/games/${g.gameId}`} className="group">
-                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-surface-container border border-outline-variant/20">
+                    <div className="aspect-[3/4] overflow-hidden bg-surface-container border border-outline-variant/20">
                       {g.coverPath && (
                         <img src={g.coverPath} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                       )}

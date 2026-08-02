@@ -101,7 +101,7 @@ export function GameCompletionsCard({ gameId, token, status, refreshKey }: Props
   }
 
   return (
-    <section className="glass-panel rounded-xl p-5">
+    <section className="glass-panel p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40">
           Completions

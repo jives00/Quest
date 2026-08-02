@@ -50,7 +50,7 @@ function ActivityRow({ event }: { event: ActivityEvent }) {
 
   return (
     <Link href={`/games/${event.gameId}`} className="flex items-center gap-4 px-4 py-4 hover:bg-on-surface/5 transition-colors bg-surface-container rounded-lg">
-      <div className="shrink-0 w-12 h-16 rounded-md overflow-hidden bg-surface-container-high relative">
+      <div className="shrink-0 w-12 h-16 overflow-hidden bg-surface-container-high relative">
         {event.type === "achievement" && event.extra ? (
           <img src={event.extra} alt="" className="w-full h-full object-cover" />
         ) : event.coverPath ? (

@@ -148,7 +148,7 @@ function WishlistPricePanel({ gameId, token }: { gameId: number; token: string }
 
   if (price === "loading") {
     return (
-      <section className="glass-panel rounded-xl p-5">
+      <section className="glass-panel p-5">
         <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Best Price</h3>
         <div className="flex items-center gap-2 text-on-surface/40 text-sm">
           <div className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
@@ -161,7 +161,7 @@ function WishlistPricePanel({ gameId, token }: { gameId: number; token: string }
   if (!price || (!price.current && !price.lowest)) return null;
 
   return (
-    <section className="glass-panel rounded-xl p-5">
+    <section className="glass-panel p-5">
       <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Best Price</h3>
       {price.current ? (
         <div className="mb-3">
@@ -611,7 +611,7 @@ export default function GameDetailPage() {
                   setActiveScreenshot(item.type === "trailer" ? null : item.id);
                 };
                 return (
-                  <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: "16/9" }}>
+                  <div className="relative w-full overflow-hidden bg-black" style={{ aspectRatio: "16/9" }}>
                     {activeScreenshot ? (
                       <img
                         src={`https://images.igdb.com/igdb/image/upload/t_1080p/${activeScreenshot}.jpg`}
@@ -654,7 +654,7 @@ export default function GameDetailPage() {
                   {game.trailerVideoIds[0] && (
                     <button
                       onClick={() => setActiveScreenshot(null)}
-                      className={`flex-none relative rounded-lg overflow-hidden border-2 transition-all ${activeScreenshot === null ? "border-accent" : "border-transparent hover:border-outline-variant"}`}
+                      className={`flex-none relative overflow-hidden border-2 transition-all ${activeScreenshot === null ? "border-accent" : "border-transparent hover:border-outline-variant"}`}
                     >
                       <img
                         src={`https://img.youtube.com/vi/${game.trailerVideoIds[0]}/mqdefault.jpg`}
@@ -670,7 +670,7 @@ export default function GameDetailPage() {
                     <button
                       key={id}
                       onClick={() => setActiveScreenshot(id)}
-                      className={`flex-none rounded-lg overflow-hidden border-2 transition-all ${activeScreenshot === id ? "border-accent" : "border-transparent hover:border-outline-variant"}`}
+                      className={`flex-none overflow-hidden border-2 transition-all ${activeScreenshot === id ? "border-accent" : "border-transparent hover:border-outline-variant"}`}
                     >
                       <img
                         src={`https://images.igdb.com/igdb/image/upload/t_screenshot_med/${id}.jpg`}
@@ -781,7 +781,7 @@ export default function GameDetailPage() {
           )}
 
           {/* Status */}
-          <section className="glass-panel rounded-xl p-5">
+          <section className="glass-panel p-5">
             <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Status</h3>
             <StatusSelector current={game.status} onChange={handleStatusChange} />
           </section>
@@ -795,7 +795,7 @@ export default function GameDetailPage() {
           />
 
           {/* Playtime */}
-          <section className="glass-panel rounded-xl p-5">
+          <section className="glass-panel p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40">Playtime</h3>
               <button
@@ -859,7 +859,7 @@ export default function GameDetailPage() {
           {showPlaytimeEdit && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowPlaytimeEdit(false)} />
-              <div className="relative glass-panel rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+              <div className="relative glass-panel p-6 w-full max-w-sm shadow-2xl">
                 <h2 className="text-h2 font-black tracking-tight text-on-surface mb-1">Edit Playtime</h2>
                 <p className="text-sm text-on-surface/50 mb-5">
                   Enter hours played. Leave blank to clear.
@@ -903,7 +903,7 @@ export default function GameDetailPage() {
           )}
 
           {/* Rating */}
-          <section className="glass-panel rounded-xl p-5">
+          <section className="glass-panel p-5">
             <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Rating</h3>
             <div className="flex gap-1">
               {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
@@ -928,7 +928,7 @@ export default function GameDetailPage() {
           </section>
 
           {/* Ownership */}
-          <section className="glass-panel rounded-xl p-5">
+          <section className="glass-panel p-5">
             <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Ownership</h3>
             <div className="flex flex-wrap gap-2">
               {ALL_PLATFORMS.map((plat) => {
@@ -979,7 +979,7 @@ export default function GameDetailPage() {
 
           {/* External Links */}
           {game.steamAppId && (
-            <section className="glass-panel rounded-xl p-5">
+            <section className="glass-panel p-5">
               <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Links</h3>
               <div className="flex flex-wrap gap-2">
                 {[
@@ -1003,7 +1003,7 @@ export default function GameDetailPage() {
           )}
 
           {/* Lists */}
-          <section className="glass-panel rounded-xl p-5">
+          <section className="glass-panel p-5">
             <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Lists</h3>
             <div className="flex flex-col gap-2">
               {[...systemLists, ...customLists].map((l) => {
@@ -1068,11 +1068,11 @@ function AchievementRow({ achievement }: { achievement: Achievement }) {
   const rarity = achievement.globalPct != null ? rarityLabel(achievement.globalPct) : null;
 
   return (
-    <div className="bg-surface-container rounded-lg px-4 py-3 flex items-center gap-4">
+    <div className="bg-surface-container px-4 py-3 flex items-center gap-4">
       {achievement.icon ? (
-        <img src={achievement.icon} alt="" className={`self-stretch w-auto max-h-16 rounded shrink-0 ${!unlocked ? "opacity-40 grayscale" : ""}`} />
+        <img src={achievement.icon} alt="" className={`self-stretch w-auto max-h-16 shrink-0 ${!unlocked ? "opacity-40 grayscale" : ""}`} />
       ) : (
-        <div className="self-stretch max-h-16 aspect-square rounded bg-surface-container flex items-center justify-center shrink-0">
+        <div className="self-stretch max-h-16 aspect-square bg-surface-container flex items-center justify-center shrink-0">
           <span className="material-symbols-outlined text-on-surface/20 text-xl">emoji_events</span>
         </div>
       )}

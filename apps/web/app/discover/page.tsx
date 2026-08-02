@@ -234,7 +234,7 @@ export default function DiscoverPage() {
                     key={i}
                     className={`${
                       isSteam ? "aspect-[616/353]" : "aspect-[264/374]"
-                    } bg-surface-container rounded animate-pulse`}
+                    } bg-surface-container animate-pulse`}
                   />
                 ))}
               </div>
