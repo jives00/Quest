@@ -118,7 +118,7 @@ export default function StatsPage() {
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="bg-surface-container-low rounded-xl border border-outline-variant/20 p-5">
+    <div className="bg-surface-container rounded-xl border border-outline-variant/20 p-5">
       <p className="text-sm font-bold uppercase tracking-widest text-on-surface/40">{label}</p>
       <p className="text-2xl font-black text-on-surface mt-1">{value}</p>
       {hint && <p className="text-sm text-on-surface/40 mt-0.5">{hint}</p>}
@@ -132,7 +132,7 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`bg-surface-container-low rounded-xl border border-outline-variant/20 ${className}`}>
+    <div className={`bg-surface-container rounded-xl border border-outline-variant/20 ${className}`}>
       {children}
     </div>
   );
