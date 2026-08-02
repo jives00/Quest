@@ -283,7 +283,7 @@ const s = StyleSheet.create({
   },
   statCard: {
     width: "47%",
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,

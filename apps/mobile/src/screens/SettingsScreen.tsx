@@ -272,7 +272,7 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 14, fontWeight: "800", color: "#f0f0f6" },
 
   fieldRow: {
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
@@ -293,7 +293,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 8,
     padding: 14,
     borderWidth: 1,
@@ -306,7 +306,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 8,
     padding: 12,
     borderWidth: 1,
@@ -339,7 +339,7 @@ const s = StyleSheet.create({
   updateBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
   logoutBtn: {
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 8,
     paddingVertical: 14,
     alignItems: "center",

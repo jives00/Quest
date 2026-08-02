@@ -281,7 +281,7 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: 16,
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 10,
     padding: 10,
     gap: 10,
@@ -319,7 +319,7 @@ const s = StyleSheet.create({
 
   graphBox: {
     marginHorizontal: 16,
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 10,
     padding: 14,
     borderWidth: 1,

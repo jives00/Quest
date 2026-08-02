@@ -247,7 +247,7 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   modalBox: {
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 14,
     padding: 20,
     width: 300,

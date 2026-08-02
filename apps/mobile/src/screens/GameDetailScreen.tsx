@@ -558,7 +558,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
@@ -571,7 +571,7 @@ const s = StyleSheet.create({
     flex: 1,
     height: 34,
     borderRadius: 6,
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
@@ -584,7 +584,7 @@ const s = StyleSheet.create({
 
   notesEdit: { gap: 8 },
   notesInput: {
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 8,
     padding: 12,
     color: "#f0f0f6",
@@ -606,7 +606,7 @@ const s = StyleSheet.create({
   scoresRow: { flexDirection: "row", gap: 12 },
   scoreCard: {
     flex: 1,
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 8,
     padding: 12,
     alignItems: "center",
@@ -620,7 +620,7 @@ const s = StyleSheet.create({
   hltbRow: { flexDirection: "row", gap: 10 },
   hltbCard: {
     flex: 1,
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 8,
     padding: 10,
     alignItems: "center",

@@ -155,7 +155,7 @@ const s = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,

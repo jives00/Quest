@@ -219,7 +219,7 @@ const s = StyleSheet.create({
 
   searchRow: { paddingHorizontal: 16, marginBottom: 8 },
   searchInput: {
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -235,7 +235,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#1d2a3b",
+    backgroundColor: "#162330",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
