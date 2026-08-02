@@ -25,6 +25,28 @@ export function formatHours(totalMin: number): string {
 }
 
 /**
+ * YYYY-MM-DD key for a moment, in Central Time.
+ *
+ * Every server-side day bucket groups by CONVERT_TZ(..., 'America/Chicago'), so any
+ * client that builds its own day keys to line up against those buckets must use CT
+ * too. `toISOString().slice(0,10)` does NOT work: it is UTC, so from 7pm CT onward
+ * it names tomorrow and the whole window slides a day off the data.
+ *
+ * Mirrors the web's `toLocaleDateString("en-CA", { timeZone: "America/Chicago" })`.
+ * Falls back to the device's own calendar date if Intl has no timezone support —
+ * still correct on a CT device, and never worse than the UTC bug it replaces.
+ */
+export function ctDateKey(d: Date): string {
+  try {
+    const s = d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  } catch {
+    // fall through
+  }
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
  * Format a date string (ISO or YYYY-MM-DD) as a short locale string.
  * e.g. "2024-03-15" -> "Mar 15, 2024"
  */

@@ -21,6 +21,9 @@ import type { SharedDetailParamList } from "../navigation/types";
 
 type Route = RouteProp<SharedDetailParamList, "GameDetail">;
 
+/** Platforms whose pollers report real playtime minutes (Xbox reports none). */
+const PLAYTIME_TRACKED = new Set<string>(["steam", "psn", "xbox"]);
+
 const STATUS_OPTIONS: { label: string; value: GameStatus }[] = [
   { label: "Unplayed", value: "unplayed" },
   { label: "Playing", value: "playing" },
@@ -168,6 +171,20 @@ export default function GameDetailScreen() {
   const heroUri = imgUrl(game.heroPath);
   const coverUri = imgUrl(game.coverPath);
 
+  // Sum the playtime rows, exactly as the web game page does. NOT `game.lifetimeMin`
+  // -- that field is hardcoded to 0 by the games endpoint (the web only reads it
+  // behind a `> 0` guard, so it renders nothing there; mobile showed "0m played" on
+  // every game). "Not tracked" distinguishes a game on a platform that reports no
+  // minutes from one genuinely at zero.
+  const totalPlaytimeMin = game.playtime.reduce((sum, p) => sum + p.totalMin, 0);
+  const playtimeTracked = game.ownership.some(p => PLAYTIME_TRACKED.has(p));
+  const playtimeLabel =
+    totalPlaytimeMin > 0
+      ? `${formatMinutes(totalPlaytimeMin)} played`
+      : playtimeTracked
+        ? "0m played"
+        : "Not tracked";
+
   return (
     <ScrollView style={s.root} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Hero */}
@@ -190,7 +207,7 @@ export default function GameDetailScreen() {
               {game.genres.join(", ")}
             </Text>
           )}
-          <Text style={s.playtime}>{formatMinutes(game.lifetimeMin)} played</Text>
+          <Text style={s.playtime}>{playtimeLabel}</Text>
         </View>
       </View>
 

@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../lib/api";
 import { imgUrl } from "../lib/img";
-import { formatMinutes, formatRelativeDate } from "../lib/format";
+import { ctDateKey, formatMinutes, formatRelativeDate } from "../lib/format";
 import type { SharedDetailParamList } from "../navigation/types";
 import type {
   DashboardResponse,
@@ -219,7 +219,8 @@ function ActivityGraph({ stats }: { stats: DailyPlayStat[] }) {
   const last14: DailyPlayStat[] = Array.from({ length: 14 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (13 - i));
-    const date = d.toISOString().slice(0, 10);
+    // CT date, to match the server's CONVERT_TZ('America/Chicago') grouping.
+    const date = ctDateKey(d);
     return { date, totalMin: statsByDate.get(date) ?? 0 };
   });
   const maxMin = Math.max(...last14.map((d) => d.totalMin), 1);
