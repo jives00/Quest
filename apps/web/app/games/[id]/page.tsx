@@ -394,10 +394,13 @@ export default function GameDetailPage() {
 
   const sortedAchievements = [...game.achievements].sort((a, b) => {
     if (achSort === "rarity") {
-      // Rarest first (lowest %) across all achievements regardless of lock state; null pct sorts to end
-      const pa = a.globalPct ?? 101;
-      const pb = b.globalPct ?? 101;
-      return pa - pb;
+      // Least rare first (highest %) across all achievements regardless of lock
+      // state; null pct still sorts to the end, so it can't ride along with the
+      // high percentages a sentinel value would put at the top.
+      if (a.globalPct == null && b.globalPct == null) return 0;
+      if (a.globalPct == null) return 1;
+      if (b.globalPct == null) return -1;
+      return b.globalPct - a.globalPct;
     }
     if (achSort === "date") {
       // Most recently unlocked first; locked to bottom

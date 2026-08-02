@@ -10,7 +10,7 @@ function userId(request: FastifyRequest): number {
 type AchSort = 'rarity' | 'date' | 'name' | 'locked';
 
 const SORT_CLAUSES: Record<AchSort, string> = {
-  rarity: `(a.global_pct IS NULL) ASC, a.global_pct ASC, a.name ASC`,
+  rarity: `(a.global_pct IS NULL) ASC, a.global_pct DESC, a.name ASC`,
   date: `(ua.unlocked_at IS NULL) ASC, ua.unlocked_at DESC, a.name ASC`,
   name: `a.name ASC`,
   locked: `(ua.unlocked_at IS NOT NULL) ASC, a.name ASC`,
