@@ -129,9 +129,46 @@ export interface PlaySession {
   derived: boolean;
 }
 
+export type PriceSource = "pc" | "psn" | "xbox" | "meta";
+
+export const PRICE_SOURCE_LABELS: Record<PriceSource, string> = {
+  pc: "PC",
+  psn: "PlayStation",
+  xbox: "Xbox",
+  meta: "Meta Quest",
+};
+
+export interface PriceSourceInfo {
+  source: PriceSource;
+  label: string;
+  provider: string;
+  supported: boolean;
+}
+
+export interface ResolvedPriceSource {
+  source: PriceSource | null;
+  candidates: PriceSource[];
+  overridden: boolean;
+  supported: boolean;
+}
+
+export interface PriceSourceOverride {
+  gameId: number;
+  title: string;
+  source: PriceSource;
+}
+
 export interface WishlistPrice {
   current: { price: number; regular: number; cut: number; shop: string; url: string } | null;
   lowest: { price: number } | null;
+  /** Storefront the price was quoted from, per the priority settings. */
+  source: PriceSource | null;
+  /** Sources this game is available on, in priority order. */
+  candidates: PriceSource[];
+  /** True when a per-game override chose the source. */
+  overridden: boolean;
+  /** False when `source` has no price provider implemented yet. */
+  supported: boolean;
 }
 
 export interface GameDetail {
@@ -677,6 +714,30 @@ export const api = {
     request<GameDetail>(`/api/games/${id}/playtime/manual`, { method: "PUT", body: JSON.stringify({ minutes }), token }),
   getWishlistPrice: (id: number, token: string, signal?: AbortSignal) =>
     request<WishlistPrice>(`/api/games/${id}/price`, { token, signal }),
+
+  // ── Pricing preferences ─────────────────────────────────────────────────
+  getPriceSources: (token: string) =>
+    request<PriceSourceInfo[]>(`/api/pricing/sources`, { token }),
+  getPricePriority: (token: string) =>
+    request<{ order: PriceSource[] }>(`/api/pricing/priority`, { token }),
+  setPricePriority: (order: PriceSource[], token: string) =>
+    request<{ order: PriceSource[] }>(`/api/pricing/priority`, {
+      method: "PUT",
+      body: JSON.stringify({ order }),
+      token,
+    }),
+  getPriceSourceOverrides: (token: string) =>
+    request<PriceSourceOverride[]>(`/api/pricing/overrides`, { token }),
+  getGamePriceSource: (gameId: number, token: string) =>
+    request<ResolvedPriceSource>(`/api/pricing/overrides/${gameId}`, { token }),
+  setGamePriceSource: (gameId: number, source: PriceSource, token: string) =>
+    request<{ updated: boolean }>(`/api/pricing/overrides/${gameId}`, {
+      method: "PUT",
+      body: JSON.stringify({ source }),
+      token,
+    }),
+  clearGamePriceSource: (gameId: number, token: string) =>
+    request<{ deleted: boolean }>(`/api/pricing/overrides/${gameId}`, { method: "DELETE", token }),
 
   // ── Status ──────────────────────────────────────────────────────────────
   setStatus: (gameId: number, status: GameStatus, token: string) =>

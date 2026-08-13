@@ -4,7 +4,12 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { api, type LibraryGame, type WishlistPrice } from "@/lib/api";
+import {
+  api,
+  PRICE_SOURCE_LABELS,
+  type LibraryGame,
+  type WishlistPrice,
+} from "@/lib/api";
 import { saveGameNavContext } from "@/lib/game-nav-context";
 
 export const dynamic = "force-dynamic";
@@ -307,6 +312,10 @@ export default function WishlistPage() {
                   // unlisted games show nothing here.
                   const cut = current?.cut ?? 0;
                   const onSale = current != null && cut > 0;
+                  // Resolved to a store Quest cannot price yet (PSN/Xbox/Meta).
+                  // Distinct from "listed but no deal" - say so rather than
+                  // leaving a bare dash.
+                  const untracked = price != null && price.source != null && !price.supported;
 
                   return (
                     <Link
@@ -354,7 +363,11 @@ export default function WishlistPage() {
                           </span>
                         </div>
                         <div className="text-[15px] text-on-surface/45">
-                          {current ? `Best price at ${current.shop}` : "Awaiting store listing"}
+                          {current
+                            ? `Best price at ${current.shop}`
+                            : untracked
+                              ? `No ${PRICE_SOURCE_LABELS[price!.source!]} price tracking yet`
+                              : "Awaiting store listing"}
                         </div>
                       </div>
 
@@ -386,7 +399,9 @@ export default function WishlistPage() {
                             <span className="text-[15px] text-on-surface/[0.42]">
                               {lowest
                                 ? `${atLow ? "At all-time low" : "All-time low"} $${lowest.price.toFixed(2)}`
-                                : "No pricing history"}
+                                : untracked
+                                  ? PRICE_SOURCE_LABELS[price!.source!]
+                                  : "No pricing history"}
                             </span>
                           </>
                         )}

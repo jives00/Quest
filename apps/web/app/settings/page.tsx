@@ -13,6 +13,7 @@ import { PlatformIcon } from "@/components/icon-picker/render";
 import {
   api,
   PLATFORM_LABELS,
+  PRICE_SOURCE_LABELS,
   type PlatformAccount,
   type ProvisionalMatch,
   type DuplicateCandidate,
@@ -21,6 +22,9 @@ import {
   type Platform,
   type UserPlatform,
   type PlatformOverride,
+  type PriceSource,
+  type PriceSourceInfo,
+  type PriceSourceOverride,
 } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +35,20 @@ const HEALTH_CHIP: Record<string, string> = {
   red: "bg-red-500/20 text-red-400",
 };
 
-const MAIN_TABS: { id: "account" | "platforms" | "integrations" | "imports" | "matching" | "export"; label: string; icon: string }[] = [
+type MainTab =
+  | "account"
+  | "platforms"
+  | "integrations"
+  | "pricing"
+  | "imports"
+  | "matching"
+  | "export";
+
+const MAIN_TABS: { id: MainTab; label: string; icon: string }[] = [
   { id: "account",      label: "Account",          icon: "manage_accounts" },
   { id: "platforms",    label: "Platforms",         icon: "devices" },
   { id: "integrations", label: "Integrations",      icon: "sync" },
+  { id: "pricing",      label: "Pricing",           icon: "sell" },
   { id: "imports",      label: "Library Imports",   icon: "upload_file" },
   { id: "matching",     label: "Matching Review",   icon: "rule" },
   { id: "export",       label: "Export",            icon: "download" },
@@ -50,7 +64,7 @@ export default function SettingsPage() {
   const [savingSteam, setSavingSteam] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
-  const [mainTab, setMainTab] = useState<"account" | "platforms" | "integrations" | "imports" | "matching" | "export">("account");
+  const [mainTab, setMainTab] = useState<MainTab>("account");
   const [tab, setTab] = useState<"provisional" | "duplicates" | "merge">("provisional");
   const [provisional, setProvisional] = useState<ProvisionalMatch[]>([]);
   const [duplicates, setDuplicates] = useState<DuplicateCandidate[]>([]);
@@ -195,6 +209,10 @@ export default function SettingsPage() {
             </p>
             <ManualImportPanel accounts={accounts} token={token} onChange={reload} userPlatforms={userPlatforms} />
           </div>
+        )}
+
+        {mainTab === "pricing" && (
+          <PricingPanel token={token} />
         )}
 
         {mainTab === "export" && (
@@ -661,6 +679,155 @@ function AccountPanel({ token }: { token: string }) {
     </div>
   );
 }
+
+function PricingPanel({ token }: { token: string }) {
+  const [sources, setSources] = useState<PriceSourceInfo[]>([]);
+  const [order, setOrder] = useState<PriceSource[]>([]);
+  const [overrides, setOverrides] = useState<PriceSourceOverride[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      api.getPriceSources(token),
+      api.getPricePriority(token),
+      api.getPriceSourceOverrides(token),
+    ])
+      .then(([s, p, o]) => {
+        setSources(s);
+        setOrder(p.order);
+        setOverrides(o);
+      })
+      .catch(() => setError("Could not load pricing settings."));
+  }, [token]);
+
+  const info = (s: PriceSource) => sources.find((x) => x.source === s);
+
+  async function persist(next: PriceSource[]) {
+    const previous = order;
+    setOrder(next); // optimistic - the list should not lag the click
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api.setPricePriority(next, token);
+      setOrder(res.order);
+    } catch {
+      setOrder(previous);
+      setError("Could not save the priority order.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function move(index: number, delta: number) {
+    const target = index + delta;
+    if (target < 0 || target >= order.length) return;
+    const next = [...order];
+    [next[index], next[target]] = [next[target], next[index]];
+    void persist(next);
+  }
+
+  async function removeOverride(gameId: number) {
+    try {
+      await api.clearGamePriceSource(gameId, token);
+      setOverrides((prev) => prev.filter((o) => o.gameId !== gameId));
+    } catch {
+      setError("Could not remove that override.");
+    }
+  }
+
+  return (
+    <div className="px-8 py-8">
+      <h1 className="text-2xl font-black tracking-tight text-on-surface mb-2">Pricing</h1>
+      <p className="text-sm text-on-surface/50 mb-8 max-w-2xl">
+        When a game is sold on more than one store, the highest source in this list that the game
+        is actually available on decides which price is shown.
+      </p>
+
+      {error && <p className="text-xs text-red-400 mb-4">{error}</p>}
+
+      <div className="bg-surface-container-low border border-outline-variant/20 p-6 max-w-xl mb-8">
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-sm font-bold text-on-surface">Source priority</h2>
+          {saving && <span className="text-[11px] text-on-surface/40">Saving...</span>}
+        </div>
+        <p className="text-xs text-on-surface/50 mb-5">Highest priority first.</p>
+
+        <ul className="flex flex-col gap-2">
+          {order.map((s, i) => {
+            const meta = info(s);
+            const label = meta?.label ?? PRICE_SOURCE_LABELS[s];
+            return (
+              <li
+                key={s}
+                className="flex items-center gap-3 bg-surface-container border border-outline-variant/20 px-4 py-3"
+              >
+                <span className="text-xs font-bold text-on-surface/30 w-4">{i + 1}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-on-surface">{label}</p>
+                  <p className="text-xs text-on-surface/40">
+                    {meta?.provider ?? "—"}
+                    {meta && !meta.supported && " · no price data yet"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => move(i, -1)}
+                    disabled={i === 0}
+                    aria-label={`Move ${label} up`}
+                    className="w-8 h-8 flex items-center justify-center bg-surface-container-high text-on-surface/70 hover:text-on-surface disabled:opacity-25 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-base">arrow_upward</span>
+                  </button>
+                  <button
+                    onClick={() => move(i, 1)}
+                    disabled={i === order.length - 1}
+                    aria-label={`Move ${label} down`}
+                    className="w-8 h-8 flex items-center justify-center bg-surface-container-high text-on-surface/70 hover:text-on-surface disabled:opacity-25 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-base">arrow_downward</span>
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <div className="bg-surface-container-low border border-outline-variant/20 p-6 max-w-xl">
+        <h2 className="text-sm font-bold text-on-surface mb-1">Per-game overrides</h2>
+        <p className="text-xs text-on-surface/50 mb-5">
+          Set these from a game&apos;s page. They ignore the order above.
+        </p>
+        {overrides.length === 0 ? (
+          <p className="text-xs text-on-surface/40">No overrides set.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {overrides.map((o) => (
+              <li
+                key={o.gameId}
+                className="flex items-center gap-3 bg-surface-container border border-outline-variant/20 px-4 py-3"
+              >
+                <span className="flex-1 min-w-0 text-sm text-on-surface truncate">{o.title}</span>
+                <span className="text-xs font-semibold text-accent">
+                  {info(o.source)?.label ?? PRICE_SOURCE_LABELS[o.source]}
+                </span>
+                <button
+                  onClick={() => removeOverride(o.gameId)}
+                  aria-label={`Remove override for ${o.title}`}
+                  className="w-8 h-8 flex items-center justify-center text-on-surface/40 hover:text-red-400 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base">close</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 function ExportPanel({ token }: { token: string }) {
   const [busy, setBusy] = useState(false);

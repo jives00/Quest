@@ -224,7 +224,7 @@ export async function gamesRoutes(app: FastifyInstance) {
       if (!Number.isInteger(gameId) || gameId <= 0) {
         return reply.status(400).send({ error: 'Invalid gameId' });
       }
-      const price = await getWishlistPrice(gameId, request.query.country);
+      const price = await getWishlistPrice(userId(request), gameId, request.query.country);
       if (!price) return reply.status(404).send({ error: 'Price not available' });
       return price;
     },

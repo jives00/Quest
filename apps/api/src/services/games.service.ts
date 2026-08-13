@@ -20,6 +20,8 @@ import { getGameAchievementsV1, getPlayerAchievements } from './steam.client';
 import { getTrueSteamAchievementGroups } from './tsa.client';
 import { searchHltb, isHltbEnabled } from './hltb.client';
 import { lookupGameId, getPriceOverview, isItadEnabled } from './itad.client';
+import { resolvePriceSource } from './pricing.service';
+import type { PriceSource } from '../price-sources';
 export { isItadEnabled } from './itad.client';
 
 // ---------------------------------------------------------------------------
@@ -858,6 +860,14 @@ export async function setVr(gameId: number, vr: boolean): Promise<void> {
 export interface WishlistPrice {
   current: { price: number; regular: number; cut: number; shop: string; url: string } | null;
   lowest: { price: number } | null;
+  /** Storefront the price was quoted from, per the user's priority settings. */
+  source: PriceSource | null;
+  /** Sources this game is available on, in the user's priority order. */
+  candidates: PriceSource[];
+  /** True when a per-game override chose the source. */
+  overridden: boolean;
+  /** False when `source` has no price provider implemented yet. */
+  supported: boolean;
 }
 
 /**
@@ -865,12 +875,28 @@ export interface WishlistPrice {
  * Returns null when ITAD is disabled or lookup fails.
  */
 export async function getWishlistPrice(
+  userId: number,
   gameId: number,
   country = 'US',
 ): Promise<WishlistPrice | null> {
+  const resolved = await resolvePriceSource(userId, gameId);
+  const base = {
+    current: null,
+    lowest: null,
+    source: resolved.source,
+    candidates: resolved.candidates,
+    overridden: resolved.overridden,
+    supported: resolved.supported,
+  } satisfies WishlistPrice;
+
+  // Only PC has a provider today. Returning early (rather than falling through
+  // to an ITAD title search) is what stops a PlayStation-only game from being
+  // quoted a Steam price for the PC edition of the same title.
+  if (resolved.source !== 'pc') return base;
+
   if (!isItadEnabled()) {
     console.warn('[ITAD] disabled — ITAD_API_KEY not set');
-    return null;
+    return { ...base, supported: false };
   }
 
   const pool = getPool();
@@ -884,7 +910,7 @@ export async function getWishlistPrice(
   );
   if (!rows.length) {
     console.warn(`[ITAD] game ${gameId} not found in DB`);
-    return null;
+    return base;
   }
 
   const { title, steam_app_id: appid } = rows[0] as { title: string; steam_app_id: string | null };
@@ -892,12 +918,13 @@ export async function getWishlistPrice(
   const itadId = await lookupGameId({ appid: appid ?? undefined, title });
   if (!itadId) {
     console.warn(`[ITAD] no ITAD id for game ${gameId} ("${title}", appid=${appid ?? 'none'})`);
-    return null;
+    return base;
   }
 
   const overview = await getPriceOverview(itadId, country);
   if (!overview) {
     console.warn(`[ITAD] no price overview for game ${gameId} ("${title}", itadId=${itadId})`);
+    return base;
   }
-  return overview;
+  return { ...base, current: overview.current, lowest: overview.lowest };
 }

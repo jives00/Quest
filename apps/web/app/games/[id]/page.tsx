@@ -13,6 +13,8 @@ import {
   type Achievement,
   type QuestList,
   type WishlistPrice,
+  type PriceSource,
+  PRICE_SOURCE_LABELS,
   type UserPlatform,
   type PlatformOverride,
 } from "@/lib/api";
@@ -141,10 +143,32 @@ function ControllerChip({ support }: { support: "none" | "partial" | "full" }) {
 
 function WishlistPricePanel({ gameId, token }: { gameId: number; token: string }) {
   const [price, setPrice] = useState<WishlistPrice | null | "loading">("loading");
+  const [savingSource, setSavingSource] = useState(false);
+
+  function load() {
+    api.getWishlistPrice(gameId, token).then(setPrice).catch(() => setPrice(null));
+  }
 
   useEffect(() => {
-    api.getWishlistPrice(gameId, token).then(setPrice).catch(() => setPrice(null));
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, token]);
+
+  // Pin (or unpin) the store this game is priced from, then refetch so the
+  // panel reflects the new source immediately.
+  async function chooseSource(next: PriceSource | "auto") {
+    setSavingSource(true);
+    try {
+      if (next === "auto") await api.clearGamePriceSource(gameId, token);
+      else await api.setGamePriceSource(gameId, next, token);
+      setPrice("loading");
+      load();
+    } catch {
+      // Leave the current price in place; the select resets on the next render.
+    } finally {
+      setSavingSource(false);
+    }
+  }
 
   if (price === "loading") {
     return (
@@ -158,7 +182,52 @@ function WishlistPricePanel({ gameId, token }: { gameId: number; token: string }
     );
   }
 
-  if (!price || (!price.current && !price.lowest)) return null;
+  if (!price) return null;
+
+  // A source with no provider yet is worth saying out loud - otherwise the
+  // panel just vanishes and looks broken.
+  const unsupported = price.source != null && !price.supported;
+  if (!price.current && !price.lowest && !unsupported && price.candidates.length < 2) return null;
+
+  const sourcePicker =
+    price.candidates.length > 1 ? (
+      <div className="mt-4 pt-3 border-t border-outline-variant/20">
+        <label
+          htmlFor="price-source"
+          className="block text-[9px] font-bold uppercase tracking-widest text-on-surface/30 mb-1.5"
+        >
+          Price from
+        </label>
+        <select
+          id="price-source"
+          value={price.overridden && price.source ? price.source : "auto"}
+          disabled={savingSource}
+          onChange={(e) => chooseSource(e.target.value as PriceSource | "auto")}
+          className="w-full bg-surface-container border border-outline-variant/30 px-2 py-1.5 text-xs text-on-surface disabled:opacity-50"
+        >
+          <option value="auto">
+            Automatic{price.source && !price.overridden ? ` (${PRICE_SOURCE_LABELS[price.source]})` : ""}
+          </option>
+          {price.candidates.map((c) => (
+            <option key={c} value={c}>
+              {PRICE_SOURCE_LABELS[c]}
+            </option>
+          ))}
+        </select>
+      </div>
+    ) : null;
+
+  if (unsupported) {
+    return (
+      <section className="glass-panel p-5">
+        <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Best Price</h3>
+        <p className="text-sm text-on-surface/40">
+          No {PRICE_SOURCE_LABELS[price.source!]} price tracking yet.
+        </p>
+        {sourcePicker}
+      </section>
+    );
+  }
 
   return (
     <section className="glass-panel p-5">
@@ -185,6 +254,7 @@ function WishlistPricePanel({ gameId, token }: { gameId: number; token: string }
           Historical low: <span className="font-semibold">${price.lowest.price.toFixed(2)}</span>
         </p>
       )}
+      {sourcePicker}
     </section>
   );
 }
