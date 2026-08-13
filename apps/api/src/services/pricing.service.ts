@@ -8,8 +8,8 @@ import { getPool } from '../db';
 import { ALL_PLATFORMS, type Platform } from '../platforms';
 import {
   DEFAULT_PRICE_PRIORITY,
-  IMPLEMENTED_PRICE_SOURCES,
   PLATFORM_PRICE_SOURCE,
+  isPriceSourceAvailable,
   byPriority,
   isPriceSource,
   normalizePriority,
@@ -221,6 +221,6 @@ export async function resolvePriceSource(
     source,
     candidates: ordered,
     overridden: override != null,
-    supported: source != null && IMPLEMENTED_PRICE_SOURCES.includes(source),
+    supported: source != null && isPriceSourceAvailable(source),
   };
 }

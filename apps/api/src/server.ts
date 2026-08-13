@@ -9,6 +9,7 @@ import { startSteamPoller } from './services/steam-poll.service';
 import { startPsnPoller } from './services/psn-poll.service';
 import { startXboxPoller } from './services/xbox-poll.service';
 import { runBackfillSweep } from './services/matching.service';
+import { startPriceRefresh } from './services/price-refresh.service';
 
 const BACKFILL_SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000; // daily
 
@@ -33,6 +34,7 @@ async function main() {
   startPsnPoller();
   startXboxPoller();
   startBackfillSweep();
+  startPriceRefresh();
 }
 
 main().catch(err => {

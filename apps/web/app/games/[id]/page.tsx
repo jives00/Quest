@@ -845,10 +845,11 @@ export default function GameDetailPage() {
 
         {/* Right: Actions sidebar */}
         <div className="flex flex-col gap-6">
-          {/* Wishlist price panel (only when in wishlist and ITAD enabled) */}
-          {game.inWishlist && game.itadEnabled && (
-            <WishlistPricePanel gameId={game.id} token={token} />
-          )}
+          {/* Wishlist price panel. Not gated on itadEnabled: ITAD only covers
+              the 'pc' source, so gating on it would hide a PlayStation or Quest
+              game's panel. The panel resolves its own source and renders
+              nothing when there is genuinely nothing to say. */}
+          {game.inWishlist && <WishlistPricePanel gameId={game.id} token={token} />}
 
           {/* Status */}
           <section className="glass-panel p-5">

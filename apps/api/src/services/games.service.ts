@@ -21,6 +21,14 @@ import { getTrueSteamAchievementGroups } from './tsa.client';
 import { searchHltb, isHltbEnabled } from './hltb.client';
 import { lookupGameId, getPriceOverview, isItadEnabled } from './itad.client';
 import { resolvePriceSource } from './pricing.service';
+import { getMetaPrice, lookupMetaAppId } from './meta-store.client';
+import { getPsnPrice } from './platprices.client';
+import {
+  isFresh,
+  readCachedPrice,
+  writeCachedPrice,
+  type PricePayload,
+} from './price-cache.service';
 import type { PriceSource } from '../price-sources';
 export { isItadEnabled } from './itad.client';
 
@@ -871,8 +879,144 @@ export interface WishlistPrice {
 }
 
 /**
- * Return current and historical low price for a wishlist game via ITAD.
- * Returns null when ITAD is disabled or lookup fails.
+ * Meta Quest price for a game.
+ *
+ * The Quest CSV import never captured Meta app ids (there are zero
+ * `meta_quest` rows in external_game_ids), so the id is resolved from the
+ * title once and then persisted, both to skip the OculusDB round-trip next
+ * time and to backfill the mapping the import never wrote.
+ */
+async function fetchMetaPrice(gameId: number): Promise<PricePayload | null> {
+  const pool = getPool();
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT g.title,
+            (SELECT e.external_id FROM external_game_ids e
+               WHERE e.game_id = g.id AND e.source = 'meta_quest' LIMIT 1) AS meta_app_id
+       FROM games g WHERE g.id = ?`,
+    [gameId],
+  );
+  if (!rows.length) return null;
+
+  const { title, meta_app_id } = rows[0] as { title: string; meta_app_id: string | null };
+
+  let appId = meta_app_id;
+  if (!appId) {
+    appId = await lookupMetaAppId(title);
+    if (!appId) {
+      console.warn(`[Meta] no Meta app id for game ${gameId} ("${title}")`);
+      return null;
+    }
+    await pool.query(
+      `INSERT IGNORE INTO external_game_ids (game_id, source, external_id) VALUES (?, ?, ?)`,
+      [gameId, 'meta_quest', appId],
+    );
+  }
+
+  const price = await getMetaPrice(appId);
+  if (!price) return null;
+
+  // Meta publishes no price history, so `lowest` stays null and the wishlist
+  // renders "No pricing history" rather than inventing an all-time low.
+  return {
+    current: {
+      price: price.price,
+      regular: price.regular,
+      cut: price.cut,
+      shop: price.shop,
+      url: price.url,
+    },
+    lowest: null,
+  };
+}
+
+/**
+ * PlayStation price for a game, looked up by title.
+ *
+ * PlatPrices exposes price history but no single all-time-low field, so
+ * `lowest` stays null rather than inventing one.
+ */
+async function fetchPsnPrice(gameId: number, country: string): Promise<PricePayload | null> {
+  const [rows] = await getPool().query<RowDataPacket[]>(
+    `SELECT title FROM games WHERE id = ?`,
+    [gameId],
+  );
+  if (!rows.length) return null;
+
+  const price = await getPsnPrice(rows[0].title as string, country);
+  if (!price) return null;
+
+  return {
+    current: {
+      price: price.price,
+      regular: price.regular,
+      cut: price.cut,
+      shop: price.shop,
+      url: price.url,
+    },
+    lowest: null,
+  };
+}
+
+/**
+ * Fetch a price from the upstream provider for `source`.
+ *
+ * This is the seam every new storefront plugs into: add a case, add the source
+ * to IMPLEMENTED_PRICE_SOURCES, and the cache, settings UI, per-game overrides
+ * and wishlist rendering all pick it up unchanged.
+ *
+ * Returns null on any failure, which the caller must treat as "unknown" rather
+ * than "no deals" — caching a failure as an answer would hide the price for a
+ * full TTL.
+ */
+async function fetchPriceFromSource(
+  source: PriceSource,
+  gameId: number,
+  country: string,
+): Promise<PricePayload | null> {
+  if (source === 'meta') return fetchMetaPrice(gameId);
+  if (source === 'psn') return fetchPsnPrice(gameId, country);
+  if (source !== 'pc') return null;
+
+  if (!isItadEnabled()) {
+    console.warn('[ITAD] disabled — ITAD_API_KEY not set');
+    return null;
+  }
+
+  const [rows] = await getPool().query<RowDataPacket[]>(
+    `SELECT g.title,
+            (SELECT e.external_id FROM external_game_ids e
+               WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steam_app_id
+       FROM games g WHERE g.id = ?`,
+    [gameId],
+  );
+  if (!rows.length) {
+    console.warn(`[ITAD] game ${gameId} not found in DB`);
+    return null;
+  }
+
+  const { title, steam_app_id: appid } = rows[0] as { title: string; steam_app_id: string | null };
+
+  const itadId = await lookupGameId({ appid: appid ?? undefined, title });
+  if (!itadId) {
+    console.warn(`[ITAD] no ITAD id for game ${gameId} ("${title}", appid=${appid ?? 'none'})`);
+    return null;
+  }
+
+  const overview = await getPriceOverview(itadId, country);
+  if (!overview) {
+    console.warn(`[ITAD] no price overview for game ${gameId} ("${title}", itadId=${itadId})`);
+    return null;
+  }
+  return { current: overview.current, lowest: overview.lowest };
+}
+
+/**
+ * Current + historical low price for a wishlist game, read through the cache.
+ *
+ * Order: resolve the source the user wants → serve a fresh cached row → else
+ * ask the provider and store the result → else fall back to a stale row so a
+ * flaky upstream degrades to an old price rather than a blank one.
  */
 export async function getWishlistPrice(
   userId: number,
@@ -889,42 +1033,45 @@ export async function getWishlistPrice(
     supported: resolved.supported,
   } satisfies WishlistPrice;
 
-  // Only PC has a provider today. Returning early (rather than falling through
-  // to an ITAD title search) is what stops a PlayStation-only game from being
-  // quoted a Steam price for the PC edition of the same title.
-  if (resolved.source !== 'pc') return base;
+  // No provider for this storefront yet (PSN/Xbox/Meta), or no store at all.
+  // Returning here — rather than falling through to an ITAD *title* search —
+  // is what stops a PlayStation-only game being quoted the PC edition's price.
+  if (resolved.source == null || !resolved.supported) return base;
+  const source = resolved.source;
 
-  if (!isItadEnabled()) {
-    console.warn('[ITAD] disabled — ITAD_API_KEY not set');
-    return { ...base, supported: false };
+  const cached = await readCachedPrice(gameId, source, country);
+  if (cached && isFresh(cached)) {
+    return { ...base, current: cached.current, lowest: cached.lowest };
   }
 
-  const pool = getPool();
-
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.title,
-            (SELECT e.external_id FROM external_game_ids e
-               WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steam_app_id
-       FROM games g WHERE g.id = ?`,
-    [gameId],
-  );
-  if (!rows.length) {
-    console.warn(`[ITAD] game ${gameId} not found in DB`);
-    return base;
+  const fresh = await fetchPriceFromSource(source, gameId, country);
+  if (fresh) {
+    await writeCachedPrice(gameId, source, country, fresh);
+    return { ...base, current: fresh.current, lowest: fresh.lowest };
   }
 
-  const { title, steam_app_id: appid } = rows[0] as { title: string; steam_app_id: string | null };
+  // Upstream failed. A stale price is more useful than none, so long as we
+  // don't overwrite the row and reset its TTL.
+  if (cached) return { ...base, current: cached.current, lowest: cached.lowest };
+  return base;
+}
 
-  const itadId = await lookupGameId({ appid: appid ?? undefined, title });
-  if (!itadId) {
-    console.warn(`[ITAD] no ITAD id for game ${gameId} ("${title}", appid=${appid ?? 'none'})`);
-    return base;
-  }
+/**
+ * Refresh one game's cached price if it has gone stale. Used by the background
+ * sweep; returns true when an upstream call was actually made.
+ */
+export async function refreshPriceIfStale(
+  userId: number,
+  gameId: number,
+  country = 'US',
+): Promise<boolean> {
+  const resolved = await resolvePriceSource(userId, gameId);
+  if (resolved.source == null || !resolved.supported) return false;
 
-  const overview = await getPriceOverview(itadId, country);
-  if (!overview) {
-    console.warn(`[ITAD] no price overview for game ${gameId} ("${title}", itadId=${itadId})`);
-    return base;
-  }
-  return { ...base, current: overview.current, lowest: overview.lowest };
+  const cached = await readCachedPrice(gameId, resolved.source, country);
+  if (cached && isFresh(cached)) return false;
+
+  const fresh = await fetchPriceFromSource(resolved.source, gameId, country);
+  if (fresh) await writeCachedPrice(gameId, resolved.source, country, fresh);
+  return true;
 }

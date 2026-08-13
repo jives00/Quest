@@ -25,9 +25,9 @@ export const PRICE_SOURCE_LABELS: Record<PriceSource, string> = {
 /** Provider backing each source, for display in settings. */
 export const PRICE_SOURCE_PROVIDERS: Record<PriceSource, string> = {
   pc: 'IsThereAnyDeal',
-  psn: 'not yet integrated',
+  psn: 'PlatPrices',
   xbox: 'not yet integrated',
-  meta: 'not yet integrated',
+  meta: 'queststoredb.com',
 };
 
 /**
@@ -35,7 +35,30 @@ export const PRICE_SOURCE_PROVIDERS: Record<PriceSource, string> = {
  * but reports `supported: false` so the UI can say why there is no price,
  * rather than silently falling back to a different store's price.
  */
-export const IMPLEMENTED_PRICE_SOURCES: PriceSource[] = ['pc'];
+export const IMPLEMENTED_PRICE_SOURCES: PriceSource[] = ['pc', 'psn', 'meta'];
+
+/**
+ * Sources whose provider needs an API key. Read from the environment at call
+ * time rather than boot: a source with an unconfigured key must report
+ * unsupported so the UI explains itself, instead of silently returning no
+ * price and looking like the game simply is not listed.
+ */
+const SOURCE_ENV_KEY: Partial<Record<PriceSource, string>> = {
+  pc: 'ITAD_API_KEY',
+  psn: 'PLATPRICES_API_KEY',
+};
+
+/** Whether this source has a provider AND whatever credentials it needs. */
+export function isPriceSourceAvailable(source: PriceSource): boolean {
+  if (!IMPLEMENTED_PRICE_SOURCES.includes(source)) return false;
+  const key = SOURCE_ENV_KEY[source];
+  return key ? Boolean(process.env[key]) : true;
+}
+
+/** True when the source is coded but missing its key. */
+export function isPriceSourceUnconfigured(source: PriceSource): boolean {
+  return IMPLEMENTED_PRICE_SOURCES.includes(source) && !isPriceSourceAvailable(source);
+}
 
 export function isPriceSource(v: unknown): v is PriceSource {
   return typeof v === 'string' && (ALL_PRICE_SOURCES as string[]).includes(v);

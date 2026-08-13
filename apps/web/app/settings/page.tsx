@@ -767,7 +767,8 @@ function PricingPanel({ token }: { token: string }) {
                   <p className="text-sm font-semibold text-on-surface">{label}</p>
                   <p className="text-xs text-on-surface/40">
                     {meta?.provider ?? "—"}
-                    {meta && !meta.supported && " · no price data yet"}
+                    {meta?.unconfigured && " · needs API key"}
+                    {meta && !meta.implemented && " · not yet integrated"}
                   </p>
                 </div>
                 <div className="flex items-center gap-1">

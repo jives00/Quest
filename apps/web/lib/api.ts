@@ -142,6 +142,11 @@ export interface PriceSourceInfo {
   source: PriceSource;
   label: string;
   provider: string;
+  /** A provider exists in the codebase. */
+  implemented: boolean;
+  /** Implemented, but its API key is missing. */
+  unconfigured: boolean;
+  /** Usable right now (implemented and configured). */
   supported: boolean;
 }
 

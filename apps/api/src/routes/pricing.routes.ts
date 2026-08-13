@@ -14,6 +14,8 @@ import {
   PRICE_SOURCE_LABELS,
   PRICE_SOURCE_PROVIDERS,
   isPriceSource,
+  isPriceSourceAvailable,
+  isPriceSourceUnconfigured,
 } from '../price-sources';
 
 function userId(request: FastifyRequest): number {
@@ -29,7 +31,9 @@ export async function pricingRoutes(app: FastifyInstance) {
       source: s,
       label: PRICE_SOURCE_LABELS[s],
       provider: PRICE_SOURCE_PROVIDERS[s],
-      supported: IMPLEMENTED_PRICE_SOURCES.includes(s),
+      implemented: IMPLEMENTED_PRICE_SOURCES.includes(s),
+      unconfigured: isPriceSourceUnconfigured(s),
+      supported: isPriceSourceAvailable(s),
     })),
   );
 
