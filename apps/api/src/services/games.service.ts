@@ -856,7 +856,7 @@ export async function setVr(gameId: number, vr: boolean): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export interface WishlistPrice {
-  current: { price: number; shop: string; url: string } | null;
+  current: { price: number; regular: number; cut: number; shop: string; url: string } | null;
   lowest: { price: number } | null;
 }
 

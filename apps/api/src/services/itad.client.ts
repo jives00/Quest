@@ -12,6 +12,10 @@ const ITAD_BASE = 'https://api.isthereanydeal.com';
 export interface ItadDealEntry {
   /** Price in the requested currency */
   price: number;
+  /** Undiscounted price in the requested currency */
+  regular: number;
+  /** Discount percentage off the regular price (0 when not on sale) */
+  cut: number;
   /** Human-readable shop name */
   shop: string;
   /** Direct URL to the deal */
@@ -52,6 +56,10 @@ interface ItadLookupResponse {
 interface ItadDeal {
   shop: { name: string };
   price: { amount: number; currency: string };
+  /** Undiscounted price. Absent for some shops. */
+  regular?: { amount: number; currency: string } | null;
+  /** Discount percentage. Absent for some shops. */
+  cut?: number | null;
   url: string;
 }
 
@@ -141,13 +149,25 @@ export async function getPriceOverview(
       return null;
     }
 
-    const current: ItadDealEntry | null = item.current
-      ? {
-          price: item.current.price.amount,
-          shop: item.current.shop.name,
-          url: item.current.url,
-        }
-      : null;
+    let current: ItadDealEntry | null = null;
+    if (item.current) {
+      const price = item.current.price.amount;
+      const regular = item.current.regular?.amount ?? price;
+      // ITAD omits `cut` for some shops — derive it from regular vs. current.
+      const cut =
+        item.current.cut != null
+          ? item.current.cut
+          : regular > 0
+            ? Math.round(((regular - price) / regular) * 100)
+            : 0;
+      current = {
+        price,
+        regular,
+        cut: cut > 0 ? cut : 0,
+        shop: item.current.shop.name,
+        url: item.current.url,
+      };
+    }
 
     const lowest: { price: number } | null = item.lowest
       ? { price: item.lowest.price.amount }

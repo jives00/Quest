@@ -130,7 +130,7 @@ export interface PlaySession {
 }
 
 export interface WishlistPrice {
-  current: { price: number; shop: string; url: string } | null;
+  current: { price: number; regular: number; cut: number; shop: string; url: string } | null;
   lowest: { price: number } | null;
 }
 
