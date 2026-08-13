@@ -16,20 +16,32 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../lib/api";
 import type { LibraryGame, WishlistPrice, QuestListDetail } from "../lib/api";
+import { PRICE_SOURCE_LABELS } from "../lib/api";
 import { imgUrl } from "../lib/img";
 import { formatDate } from "../lib/format";
 import type { SharedDetailParamList } from "../navigation/types";
 
 type Nav = NativeStackNavigationProp<SharedDetailParamList>;
 
-type SortKey = "alpha" | "release" | "rating" | "price";
+type SortKey = "alpha" | "release" | "rating" | "price" | "discount";
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "alpha", label: "A–Z" },
   { key: "release", label: "Release" },
   { key: "rating", label: "Rating" },
   { key: "price", label: "Price" },
+  { key: "discount", label: "Discount" },
 ];
+
+/**
+ * Sort weight for the discount column: negated cut so a bigger discount sorts
+ * first, 0 for full-price games, and null (always last) when there is no price.
+ */
+function discountRank(e: WishlistEntry): number | null {
+  const current = e.price?.current ?? null;
+  if (current == null) return null;
+  return current.cut > 0 ? -current.cut : 0;
+}
 
 interface WishlistEntry {
   game: LibraryGame;
@@ -65,6 +77,15 @@ function sortEntries(entries: WishlistEntry[], sort: SortKey): WishlistEntry[] {
         if (ap == null) return 1;
         if (bp == null) return -1;
         return ap - bp;
+      }
+      case "discount": {
+        // Deepest discount first, then full price, then unpriced.
+        const ad = discountRank(a);
+        const bd = discountRank(b);
+        if (ad == null && bd == null) return 0;
+        if (ad == null) return 1;
+        if (bd == null) return -1;
+        return ad - bd;
       }
     }
   });
@@ -201,14 +222,23 @@ export default function WishlistScreen() {
               {item.priceLoading ? (
                 <View style={s.pricePlaceholder} />
               ) : item.price ? (
-                <Text style={item.price.current ? s.price : s.priceNA}>
-                  {item.price.current
-                    ? `$${item.price.current.price.toFixed(2)} · ${item.price.current.shop}`
-                    : "Not currently listed"}
-                  {item.price.lowest
-                    ? ` | Low $${item.price.lowest.price.toFixed(2)}`
-                    : ""}
-                </Text>
+                <View style={s.priceRow}>
+                  {item.price.current && item.price.current.cut > 0 && (
+                    <Text style={s.discountBadge}>-{item.price.current.cut}%</Text>
+                  )}
+                  <Text style={item.price.current ? s.price : s.priceNA}>
+                    {item.price.current
+                      ? `$${item.price.current.price.toFixed(2)} · ${item.price.current.shop}`
+                      : item.price.source && !item.price.supported
+                        ? // The game IS listed - we just cannot price that store
+                          // yet. Saying "not listed" here would be wrong.
+                          `No ${PRICE_SOURCE_LABELS[item.price.source]} price tracking yet`
+                        : "Not currently listed"}
+                    {item.price.lowest
+                      ? ` | Low $${item.price.lowest.price.toFixed(2)}`
+                      : ""}
+                  </Text>
+                </View>
               ) : (
                 <Text style={s.priceNA}>No price data</Text>
               )}
@@ -259,8 +289,19 @@ const s = StyleSheet.create({
   name: { color: "#f0f0f6", fontSize: 14, fontWeight: "600" },
   releaseDate: { color: "#888", fontSize: 11, marginTop: 2 },
   rating: { color: "#aaa", fontSize: 11, marginTop: 2 },
-  price: { color: "#4caf50", fontSize: 12, marginTop: 3 },
-  priceNA: { color: "#555", fontSize: 12, marginTop: 3 },
+  priceRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 },
+  price: { color: "#4caf50", fontSize: 12, flexShrink: 1 },
+  discountBadge: {
+    color: "#4ade80",
+    backgroundColor: "rgba(34,197,94,0.2)",
+    fontSize: 11,
+    fontWeight: "800",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  priceNA: { color: "#555", fontSize: 12, flexShrink: 1 },
   pricePlaceholder: {
     width: 90,
     height: 12,

@@ -134,9 +134,32 @@ export interface PlaySession {
   derived: boolean;
 }
 
+export type PriceSource = "pc" | "psn" | "xbox" | "meta";
+
+export const PRICE_SOURCE_LABELS: Record<PriceSource, string> = {
+  pc: "PC",
+  psn: "PlayStation",
+  xbox: "Xbox",
+  meta: "Meta Quest",
+};
+
 export interface WishlistPrice {
-  current: { price: number; shop: string; url: string } | null;
+  current: {
+    price: number;
+    regular: number;
+    cut: number;
+    shop: string;
+    url: string;
+  } | null;
   lowest: { price: number } | null;
+  /** Storefront the price was quoted from, per the priority settings. */
+  source: PriceSource | null;
+  /** Sources this game is available on, in priority order. */
+  candidates: PriceSource[];
+  /** True when a per-game override chose the source. */
+  overridden: boolean;
+  /** False when `source` has no price provider configured yet. */
+  supported: boolean;
 }
 
 export interface GameDetail {
