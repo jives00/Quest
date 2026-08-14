@@ -17,6 +17,10 @@ export interface SteamAppDetails {
   metacriticUrl: string | null;
   /** True when the Steam store lists this app as VR Supported or VR Only. */
   vrSupported: boolean;
+  /** True when the store still lists this app as "Coming soon" (not yet released). */
+  comingSoon: boolean;
+  /** Raw store release-date string, e.g. "TBA", "Q3 2026", "12 Nov, 2025". */
+  releaseDate: string | null;
 }
 
 export interface SteamTopSellerItem {
@@ -54,6 +58,7 @@ type AppDetailsResponse = Record<
         url: string;
       };
       categories?: Array<{ id: number; description: string }>;
+      release_date?: { coming_soon?: boolean; date?: string };
     };
   }
 >;
@@ -118,7 +123,7 @@ export async function fetchTopSellers(): Promise<SteamTopSellerItem[]> {
  */
 export async function fetchAppDetails(appid: string | number): Promise<SteamAppDetails | null> {
   try {
-    const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&filters=basic,metacritic,controller,categories`;
+    const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&filters=basic,metacritic,controller,categories,release_date`;
     const res = await fetch(url);
     if (!res.ok) return null;
 
@@ -141,6 +146,8 @@ export async function fetchAppDetails(appid: string | number): Promise<SteamAppD
       metacritic: d.metacritic?.score ?? null,
       metacriticUrl: d.metacritic?.url ?? null,
       vrSupported,
+      comingSoon: d.release_date?.coming_soon === true,
+      releaseDate: d.release_date?.date || null,
     };
   } catch {
     return null;

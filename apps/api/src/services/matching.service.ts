@@ -8,6 +8,7 @@ import {
 } from './igdb.client';
 import { searchGames as rawgSearch, isRawgEnabled } from './rawg.client';
 import { getBestHeroUrl, isSteamGridDbEnabled } from './steamgriddb.client';
+import { fetchAppDetails } from './steam-store.client';
 
 // ---------------------------------------------------------------------------
 // Confidence threshold — the SINGLE source of truth governing every match
@@ -32,6 +33,10 @@ export interface ResolveInput {
   externalId: string;
   title: string; // platform-reported title (fallback for provisional rows)
   platformId?: number; // IGDB platform id filter (6 = PC, 167 = PS5)
+  /** The storefront says this title has not shipped yet. Narrows IGDB candidates
+   *  to unreleased games so an upcoming title cannot be matched to a same-named
+   *  game from years ago (e.g. the upcoming "CROSSFIRE" vs. CrossFire 2007). */
+  unreleased?: boolean;
 }
 
 export interface ResolveResult {
@@ -233,15 +238,30 @@ async function findGameByExternalId(
 // Core resolve flow
 // ---------------------------------------------------------------------------
 
+/** True when IGDB has no release date for the game, or dates it in the future.
+ *  Both count as "hasn't shipped" for candidate filtering. */
+function isUnreleasedIgdb(g: IgdbGame): boolean {
+  if (!g.first_release_date) return true;
+  return g.first_release_date * 1000 > Date.now();
+}
+
 /** Find an IGDB game for a title via IGDB search, RAWG fallback for the query.
- *  Returns the chosen IGDB game + confidence, or null if nothing crosses noise. */
+ *  Returns the chosen IGDB game + confidence, or null if nothing crosses noise.
+ *
+ *  `unreleased` narrows the candidate pool to games IGDB also considers
+ *  unshipped. Titles get reused across decades, and similarity alone happily
+ *  scores an upcoming game 1.00 against its long-released namesake. */
 async function searchBestIgdb(
   title: string,
   platformId?: number,
+  unreleased = false,
 ): Promise<{ game: IgdbGame; score: number } | null> {
   const query = normalizeForSearch(title) || title;
 
-  const igdbResults = await igdbSearch(query, { platformId, limit: 10 });
+  // Ask for a deeper page when filtering: an upcoming game usually ranks below
+  // its established namesake, so the top 10 can be all released titles.
+  const igdbRaw = await igdbSearch(query, { platformId, limit: unreleased ? 25 : 10 });
+  const igdbResults = unreleased ? igdbRaw.filter(isUnreleasedIgdb) : igdbRaw;
   const igdbBest = bestMatch(query, igdbResults);
   if (igdbBest && igdbBest.score >= MATCH_CONFIDENCE_THRESHOLD) {
     return { game: igdbBest.candidate, score: igdbBest.score };
@@ -254,7 +274,11 @@ async function searchBestIgdb(
       const rawgResults = await rawgSearch(query);
       const rawgBest = bestMatch(query, rawgResults.map(r => ({ name: r.name })));
       if (rawgBest && rawgBest.score >= MATCH_CONFIDENCE_THRESHOLD) {
-        const reIgdb = await igdbSearch(rawgBest.candidate.name, { platformId, limit: 10 });
+        const reIgdbRaw = await igdbSearch(rawgBest.candidate.name, {
+          platformId,
+          limit: unreleased ? 25 : 10,
+        });
+        const reIgdb = unreleased ? reIgdbRaw.filter(isUnreleasedIgdb) : reIgdbRaw;
         const reBest = bestMatch(rawgBest.candidate.name, reIgdb);
         if (reBest && reBest.score >= MATCH_CONFIDENCE_THRESHOLD) {
           return { game: reBest.candidate, score: reBest.score };
@@ -293,7 +317,7 @@ export async function resolveExternalId(input: ResolveInput): Promise<ResolveRes
 
   let chosen: { game: IgdbGame; score: number } | null = null;
   try {
-    chosen = await searchBestIgdb(input.title, input.platformId);
+    chosen = await searchBestIgdb(input.title, input.platformId, input.unreleased);
   } catch (err) {
     console.error(`Matching: IGDB search failed for "${input.title}":`, err);
   }
@@ -363,15 +387,27 @@ async function getMatchStatus(gameId: number): Promise<ResolveResult['matchStatu
 export async function runBackfillSweep(): Promise<{ checked: number; promoted: number }> {
   const pool = getPool();
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, title FROM games WHERE match_status = 'provisional'`,
+    `SELECT g.id, g.title,
+            (SELECT e.external_id FROM external_game_ids e
+              WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steamAppId
+       FROM games g WHERE g.match_status = 'provisional'`,
   );
 
   let promoted = 0;
   for (const row of rows) {
     const gameId = row.id as number;
     const title = row.title as string;
+    const steamAppId = row.steamAppId as string | null;
     try {
-      const chosen = await searchBestIgdb(title);
+      // Re-check the storefront: a row that stayed provisional because the game
+      // is still unannounced must not get promoted onto its released namesake.
+      // Once Steam ships it the flag flips off on its own and the sweep matches
+      // normally, so this never permanently blocks a promotion.
+      let unreleased = false;
+      if (steamAppId) {
+        unreleased = (await fetchAppDetails(steamAppId))?.comingSoon ?? false;
+      }
+      const chosen = await searchBestIgdb(title, undefined, unreleased);
       if (!chosen || chosen.score < MATCH_CONFIDENCE_THRESHOLD) continue;
 
       // Avoid colliding with an already-matched row for the same IGDB id:

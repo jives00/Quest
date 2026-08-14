@@ -76,7 +76,10 @@ export async function syncSteamWishlist(
     const appid = String(item.appId);
     let gameId = await findGameIdByAppId(appid);
     if (gameId == null) {
-      // New appid — fetch its store name so IGDB matching has a real title.
+      // New appid — fetch its store name so IGDB matching has a real title, and
+      // its release state so an unannounced game is not matched to an older
+      // game of the same name (a wishlist is mostly unreleased games, so this
+      // is the common case here rather than an edge case).
       const details = await fetchAppDetails(appid);
       const title = details?.name ?? `Steam App ${appid}`;
       const res = await resolveExternalId({
@@ -84,6 +87,7 @@ export async function syncSteamWishlist(
         externalId: appid,
         title,
         platformId: STEAM_PC_PLATFORM_ID,
+        unreleased: details?.comingSoon ?? false,
       });
       await sleep(STORE_DELAY_MS);
       if (!res) continue;

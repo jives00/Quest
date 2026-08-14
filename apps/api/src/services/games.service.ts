@@ -7,7 +7,7 @@ import {
   coverUrl,
   IgdbGame,
 } from './igdb.client';
-import { upsertGameFromIgdb, deriveSortTitle, setHeroArt } from './matching.service';
+import { upsertGameFromIgdb, deriveSortTitle, setHeroArt, similarity } from './matching.service';
 import {
   searchGame as sgdbSearch,
   getGrid as sgdbGetGrid,
@@ -19,7 +19,7 @@ import { fetchAppDetails, fetchReviewSummary } from './steam-store.client';
 import { getGameAchievementsV1, getPlayerAchievements } from './steam.client';
 import { getTrueSteamAchievementGroups } from './tsa.client';
 import { searchHltb, isHltbEnabled } from './hltb.client';
-import { lookupGameId, getPriceOverview, isItadEnabled } from './itad.client';
+import { lookupGame, getPriceOverview, isItadEnabled } from './itad.client';
 import { resolvePriceSource } from './pricing.service';
 import { getMetaPrice, lookupMetaAppId } from './meta-store.client';
 import { getPsnPrice } from './platprices.client';
@@ -865,6 +865,11 @@ export async function setVr(gameId: number, vr: boolean): Promise<void> {
 // Wishlist price (ITAD)
 // ---------------------------------------------------------------------------
 
+/** How close an ITAD title-search result must be to our own title to be trusted.
+ *  Loose enough for punctuation and edition-suffix drift, tight enough to reject
+ *  a different game that merely shares a word ("Divinity" → "Divine Divinity"). */
+const ITAD_TITLE_MATCH_THRESHOLD = 0.8;
+
 export interface WishlistPrice {
   current: { price: number; regular: number; cut: number; shop: string; url: string } | null;
   lowest: { price: number } | null;
@@ -984,7 +989,7 @@ async function fetchPriceFromSource(
   }
 
   const [rows] = await getPool().query<RowDataPacket[]>(
-    `SELECT g.title,
+    `SELECT g.title, g.first_release_date AS releaseDate,
             (SELECT e.external_id FROM external_game_ids e
                WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steam_app_id
        FROM games g WHERE g.id = ?`,
@@ -995,17 +1000,41 @@ async function fetchPriceFromSource(
     return null;
   }
 
-  const { title, steam_app_id: appid } = rows[0] as { title: string; steam_app_id: string | null };
+  const {
+    title,
+    releaseDate,
+    steam_app_id: appid,
+  } = rows[0] as { title: string; releaseDate: Date | string | null; steam_app_id: string | null };
 
-  const itadId = await lookupGameId({ appid: appid ?? undefined, title });
-  if (!itadId) {
+  // A game with no announced release date and no store id cannot be identified
+  // by name alone: ITAD's title search is fuzzy, so an unannounced sequel gets
+  // answered with the decades-old original and we quote its price. No price is
+  // the honest answer here — the wishlist renders that as "awaiting listing".
+  if (!appid && releaseDate == null) {
+    console.log(`[ITAD] skipping title lookup for unreleased game ${gameId} ("${title}")`);
+    return null;
+  }
+
+  const itadGame = await lookupGame({ appid: appid ?? undefined, title });
+  if (!itadGame) {
     console.warn(`[ITAD] no ITAD id for game ${gameId} ("${title}", appid=${appid ?? 'none'})`);
     return null;
   }
 
-  const overview = await getPriceOverview(itadId, country);
+  // Only an appid lookup is an exact identity. A title lookup has to be
+  // verified against what ITAD actually returned.
+  if (!appid && similarity(title, itadGame.title) < ITAD_TITLE_MATCH_THRESHOLD) {
+    console.warn(
+      `[ITAD] title lookup for game ${gameId} ("${title}") returned "${itadGame.title}" — rejecting`,
+    );
+    return null;
+  }
+
+  const overview = await getPriceOverview(itadGame.id, country);
   if (!overview) {
-    console.warn(`[ITAD] no price overview for game ${gameId} ("${title}", itadId=${itadId})`);
+    console.warn(
+      `[ITAD] no price overview for game ${gameId} ("${title}", itadId=${itadGame.id})`,
+    );
     return null;
   }
   return { current: overview.current, lowest: overview.lowest };

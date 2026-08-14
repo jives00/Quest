@@ -80,14 +80,22 @@ interface ItadOverviewResponse {
 // Exported functions
 // ---------------------------------------------------------------------------
 
+/** An ITAD game identity. The title comes back so a caller that looked up by
+ *  title can check ITAD resolved to the game it meant — ITAD's title search is
+ *  fuzzy and will happily answer "Divinity" with "Divine Divinity". */
+export interface ItadGame {
+  id: string;
+  title: string;
+}
+
 /**
- * Look up an ITAD game ID by Steam appid (preferred) or title fallback.
+ * Look up an ITAD game by Steam appid (preferred) or title fallback.
  * Returns null when ITAD is disabled or nothing is found.
  */
-export async function lookupGameId(opts: {
+export async function lookupGame(opts: {
   appid?: string | number;
   title?: string;
-}): Promise<string | null> {
+}): Promise<ItadGame | null> {
   if (!isItadEnabled()) return null;
   const key = process.env.ITAD_API_KEY ?? '';
 
@@ -109,7 +117,8 @@ export async function lookupGameId(opts: {
     }
 
     const json = (await res.json()) as ItadLookupResponse;
-    return json.game?.id ?? null;
+    const game = json.game;
+    return game ? { id: game.id, title: game.title } : null;
   } catch (err) {
     console.warn('[ITAD] lookup error:', err);
     return null;
