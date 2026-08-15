@@ -449,3 +449,26 @@ export async function getGameAchievementsV1(
     globalPct: a.player_percent_unlocked != null ? parseFloat(a.player_percent_unlocked) : null,
   }));
 }
+
+/**
+ * Legacy-path guess at an app's wide store capsule ("header") art.
+ *
+ * Only valid for older apps. Steam moved newer titles under a per-app content
+ * hash — e.g. `/store_item_assets/steam/apps/<id>/<sha1>/header_alt_assets_2.jpg`
+ * — which cannot be reconstructed from the appid, so those 404 here and must be
+ * read from the store API instead (see `fetchAppDetails().headerImage`).
+ *
+ * Returns the 460x215 header rather than capsule_616x353.jpg: that variant is a
+ * differently-cropped 1.745 image, and mixing it with the 2.1395 art that both
+ * the store API and SteamGridDB return would letterbox or crop in a fixed-ratio
+ * slot. Every capsule source is 460x215 so the UI can assume one aspect.
+ *
+ * Use this only as a zero-cost fallback for games with no stored capsule_path.
+ * Returns null for a missing or non-numeric appid.
+ */
+export function steamCapsuleUrl(appId: string | number | null | undefined): string | null {
+  if (appId == null) return null;
+  const id = String(appId).trim();
+  if (!/^\d+$/.test(id)) return null;
+  return `https://cdn.cloudflare.steamstatic.com/steam/apps/${id}/header.jpg`;
+}

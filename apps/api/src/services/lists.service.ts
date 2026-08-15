@@ -1,5 +1,6 @@
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { getPool } from '../db';
+import { steamCapsuleUrl } from './steam.client';
 
 export interface ListRow {
   id: number;
@@ -16,6 +17,8 @@ export interface ListGameRow {
   id: number;
   title: string;
   coverPath: string | null;
+  /** Wide store capsule art, when one can be resolved. Null falls back to coverPath. */
+  capsulePath: string | null;
   matchStatus: string;
   status: string;
   sortOrder: number;
@@ -98,7 +101,10 @@ export async function getListGames(userId: number, listId: number): Promise<List
               g.first_release_date AS firstReleaseDate, g.metacritic,
               g.hltb_main_extra_hours AS hltbMainExtraHours,
               g.hltb_main_hours AS hltbMainHours,
-              g.hltb_completionist_hours AS hltbCompletionistHours
+              g.hltb_completionist_hours AS hltbCompletionistHours,
+              g.capsule_path AS capsulePath,
+              (SELECT e.external_id FROM external_game_ids e
+                WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steamAppId
          FROM games g
          LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
         WHERE g.vr_supported = 1
@@ -117,6 +123,12 @@ export async function getListGames(userId: number, listId: number): Promise<List
       hltbMainExtraHours: r.hltbMainExtraHours != null ? Number(r.hltbMainExtraHours) : null,
       hltbMainHours: r.hltbMainHours != null ? Number(r.hltbMainHours) : null,
       hltbCompletionistHours: r.hltbCompletionistHours != null ? Number(r.hltbCompletionistHours) : null,
+      // Stored capsule wins; the derived Steam URL is a zero-cost guess that
+      // only resolves for older apps. Deliberately no hero fallback — heroes
+      // are 3.10 against a capsule's 2.14, so they crop badly in the slot.
+      capsulePath:
+        (r.capsulePath as string | null) ??
+        steamCapsuleUrl(r.steamAppId as string | null),
     }));
   }
 
@@ -127,7 +139,10 @@ export async function getListGames(userId: number, listId: number): Promise<List
               g.first_release_date AS firstReleaseDate, g.metacritic,
               g.hltb_main_extra_hours AS hltbMainExtraHours,
               g.hltb_main_hours AS hltbMainHours,
-              g.hltb_completionist_hours AS hltbCompletionistHours
+              g.hltb_completionist_hours AS hltbCompletionistHours,
+              g.capsule_path AS capsulePath,
+              (SELECT e.external_id FROM external_game_ids e
+                WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steamAppId
          FROM games g
          JOIN ownership o ON o.game_id = g.id AND o.user_id = ? AND o.platform = ?
          LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
@@ -146,6 +161,12 @@ export async function getListGames(userId: number, listId: number): Promise<List
       hltbMainExtraHours: r.hltbMainExtraHours != null ? Number(r.hltbMainExtraHours) : null,
       hltbMainHours: r.hltbMainHours != null ? Number(r.hltbMainHours) : null,
       hltbCompletionistHours: r.hltbCompletionistHours != null ? Number(r.hltbCompletionistHours) : null,
+      // Stored capsule wins; the derived Steam URL is a zero-cost guess that
+      // only resolves for older apps. Deliberately no hero fallback — heroes
+      // are 3.10 against a capsule's 2.14, so they crop badly in the slot.
+      capsulePath:
+        (r.capsulePath as string | null) ??
+        steamCapsuleUrl(r.steamAppId as string | null),
     }));
   }
 
@@ -156,7 +177,10 @@ export async function getListGames(userId: number, listId: number): Promise<List
             g.first_release_date AS firstReleaseDate, g.metacritic,
             g.hltb_main_extra_hours AS hltbMainExtraHours,
             g.hltb_main_hours AS hltbMainHours,
-            g.hltb_completionist_hours AS hltbCompletionistHours
+            g.hltb_completionist_hours AS hltbCompletionistHours,
+            g.capsule_path AS capsulePath,
+            (SELECT e.external_id FROM external_game_ids e
+              WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steamAppId
        FROM list_items li
        JOIN games g ON g.id = li.game_id
        LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
@@ -177,6 +201,12 @@ export async function getListGames(userId: number, listId: number): Promise<List
     hltbMainExtraHours: r.hltbMainExtraHours != null ? Number(r.hltbMainExtraHours) : null,
     hltbMainHours: r.hltbMainHours != null ? Number(r.hltbMainHours) : null,
     hltbCompletionistHours: r.hltbCompletionistHours != null ? Number(r.hltbCompletionistHours) : null,
+    // Stored capsule wins; the derived Steam URL is a zero-cost guess that
+    // only resolves for older apps. Deliberately no hero fallback — heroes
+    // are 3.10 against a capsule's 2.14, so they crop badly in the slot.
+    capsulePath:
+      (r.capsulePath as string | null) ??
+      steamCapsuleUrl(r.steamAppId as string | null),
   }));
 }
 

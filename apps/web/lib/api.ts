@@ -92,6 +92,8 @@ export interface LibraryGame {
   id: number;
   title: string;
   coverPath: string | null;
+  /** Wide store capsule art. Null when none resolves — fall back to coverPath. */
+  capsulePath?: string | null;
   status: GameStatus | null;
   platforms: Platform[];
   completionPct: number | null;
@@ -185,6 +187,7 @@ export interface GameDetail {
   sortTitle: string | null;
   coverPath: string | null;
   heroPath: string | null;
+  capsulePath: string | null;
   igdbId: number | null;
   matchStatus: MatchStatus;
   firstReleaseDate: string | null;
@@ -229,6 +232,7 @@ export interface GameMetadataPatch {
   summary?: string | null;
   coverPath?: string | null;
   heroPath?: string | null;
+  capsulePath?: string | null;
   firstReleaseDate?: string | null;
   metacritic?: number | null;
   hltbMainHours?: number | null;
@@ -243,6 +247,7 @@ export interface GameMetadataPatch {
 export interface ArtworkCandidates {
   grids: string[];
   heroes: string[];
+  capsules: string[];
 }
 
 export interface QuestList {

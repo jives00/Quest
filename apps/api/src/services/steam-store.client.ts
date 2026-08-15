@@ -21,6 +21,12 @@ export interface SteamAppDetails {
   comingSoon: boolean;
   /** Raw store release-date string, e.g. "TBA", "Q3 2026", "12 Nov, 2025". */
   releaseDate: string | null;
+  /**
+   * Wide store capsule ("header") art, ~460x215. Must be read from the API
+   * rather than built from the appid: newer apps live under a content-hash
+   * directory with `_alt_assets` suffixes that is not derivable.
+   */
+  headerImage: string | null;
 }
 
 export interface SteamTopSellerItem {
@@ -59,6 +65,7 @@ type AppDetailsResponse = Record<
       };
       categories?: Array<{ id: number; description: string }>;
       release_date?: { coming_soon?: boolean; date?: string };
+      header_image?: string;
     };
   }
 >;
@@ -148,6 +155,7 @@ export async function fetchAppDetails(appid: string | number): Promise<SteamAppD
       vrSupported,
       comingSoon: d.release_date?.coming_soon === true,
       releaseDate: d.release_date?.date || null,
+      headerImage: d.header_image || null,
     };
   } catch {
     return null;

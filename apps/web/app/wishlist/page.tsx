@@ -83,6 +83,55 @@ function metacriticChip(mc: number | null | undefined) {
   return { value: String(mc), className: "bg-red-400/[0.16] text-red-400" };
 }
 
+/**
+ * Wide store-capsule art for a wishlist row.
+ *
+ * The API resolves capsulePath from the stored capsule, then a derived Steam URL
+ * that only holds for older apps, so a miss is still possible — an unbackfilled
+ * newer app 404s. A load failure steps down to the portrait cover, and then to
+ * the placeholder glyph.
+ *
+ * Only true capsules are cropped to fill: every capsule source is 2.14, matching
+ * the slot, so object-cover is lossless there. The portrait fallback is 0.67 and
+ * would lose two thirds of its height, so it is letterboxed instead — small, but
+ * nothing cut off.
+ */
+function WishlistArt({ game }: { game: LibraryGame }) {
+  const sources = useMemo(
+    () => [game.capsulePath, game.coverPath].filter((s): s is string => Boolean(s)),
+    [game.capsulePath, game.coverPath]
+  );
+  const [failedCount, setFailedCount] = useState(0);
+  const src = sources[failedCount] ?? null;
+  const isCapsule = src != null && src === game.capsulePath;
+
+  return (
+    // self-center is load-bearing: the row is items-stretch, and a stretched
+    // align-self overrides the height aspect-ratio would derive, so the box would
+    // silently take the row height and crop the sides on any row tall enough to
+    // wrap its title.
+    <div className="w-[240px] max-[600px]:w-[168px] flex-shrink-0 self-center aspect-[460/215] relative overflow-hidden bg-surface-container">
+      {src ? (
+        <img
+          // Remount on source change so a retry actually re-fires onError.
+          key={src}
+          src={src}
+          alt={game.title}
+          loading="lazy"
+          onError={() => setFailedCount((n) => n + 1)}
+          className={`w-full h-full ${isCapsule ? "object-cover" : "object-contain"}`}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <span className="material-symbols-outlined text-4xl text-on-surface/20">
+            sports_esports
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WishlistPage() {
   const router = useRouter();
   const { token, isLoading } = useAuth();
@@ -324,22 +373,8 @@ export default function WishlistPage() {
                       onClick={() => saveGameNavContext(gameIds, "Wishlist")}
                       className="flex gap-[28px] items-stretch flex-wrap p-4 bg-surface-container-low border border-outline-variant/30 hover:border-accent/40 transition-all duration-200 green-glow-hover"
                     >
-                      {/* Cover art */}
-                      <div className="w-[132px] max-[600px]:w-[104px] flex-shrink-0 aspect-[264/374] relative overflow-hidden bg-surface-container">
-                        {game.coverPath ? (
-                          <img
-                            src={game.coverPath}
-                            alt={game.title}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <span className="material-symbols-outlined text-4xl text-on-surface/20">
-                              sports_esports
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      {/* Capsule art */}
+                      <WishlistArt game={game} />
 
                       {/* Content */}
                       <div className="flex-1 min-w-0 flex flex-col justify-center gap-[14px] py-1">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -233,7 +233,7 @@ export default function DiscoverPage() {
                   <div
                     key={i}
                     className={`${
-                      isSteam ? "aspect-[616/353]" : "aspect-[264/374]"
+                      isSteam ? "aspect-[460/215]" : "aspect-[264/374]"
                     } bg-surface-container animate-pulse`}
                   />
                 ))}
@@ -380,7 +380,20 @@ function DiscoverCard({
 }
 
 function SteamCard({ game, rank }: { game: DiscoverGame; rank: number }) {
-  const capsuleUrl = `https://cdn.akamai.steamstatic.com/steam/apps/${game.steamAppId}/capsule_616x353.jpg`;
+  // coverUrl is the capsule URL the storefront API itself returned, so it is
+  // preferred outright. The appid-derived path is only a fallback: it 404s for
+  // any app whose art lives under a content hash, which is most new releases —
+  // exactly what tends to chart as a top seller.
+  const sources = useMemo(
+    () =>
+      [
+        game.coverUrl,
+        `https://cdn.akamai.steamstatic.com/steam/apps/${game.steamAppId}/header.jpg`,
+      ].filter((u): u is string => Boolean(u)),
+    [game.coverUrl, game.steamAppId]
+  );
+  const [failedCount, setFailedCount] = useState(0);
+  const capsuleUrl = sources[failedCount] ?? null;
 
   const finalCents = game.finalPrice ?? null;
   const origCents = game.originalPrice ?? null;
@@ -396,15 +409,17 @@ function SteamCard({ game, rank }: { game: DiscoverGame; rank: number }) {
       rel="noopener noreferrer"
       className="group block overflow-hidden bg-surface-container-low border border-outline-variant/20 hover:border-accent/40 transition-all duration-200 green-glow-hover"
     >
-      <div className="aspect-[616/353] relative overflow-hidden bg-surface-container">
-        <img
-          src={capsuleUrl}
-          alt={game.name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = game.coverUrl ?? "";
-          }}
-        />
+      <div className="aspect-[460/215] relative overflow-hidden bg-surface-container">
+        {capsuleUrl && (
+          <img
+            // Remount on source change so a retry actually re-fires onError.
+            key={capsuleUrl}
+            src={capsuleUrl}
+            alt={game.name}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            onError={() => setFailedCount((n) => n + 1)}
+          />
+        )}
         <div className="absolute top-2 left-2 bg-black/60 text-white text-xs font-bold px-2 py-0.5 rounded">
           #{rank}
         </div>

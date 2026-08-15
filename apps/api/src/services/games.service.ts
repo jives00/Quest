@@ -12,6 +12,7 @@ import {
   searchGame as sgdbSearch,
   getGrid as sgdbGetGrid,
   getHeroArt as sgdbGetHero,
+  getCapsuleArt as sgdbGetCapsules,
   isSteamGridDbEnabled,
 } from './steamgriddb.client';
 import { searchGames as rawgSearch, isRawgEnabled } from './rawg.client';
@@ -84,6 +85,7 @@ export interface GameDetail {
   platforms: string[];
   coverPath: string | null;
   heroPath: string | null;
+  capsulePath: string | null;
   hltbMainHours: number | null;
   hltbMainExtraHours: number | null;
   hltbCompletionistHours: number | null;
@@ -148,6 +150,7 @@ export async function getGameDetail(userId: number, gameId: number): Promise<Gam
   const [gameRows] = await pool.query<RowDataPacket[]>(
     `SELECT g.id, g.igdb_id, g.match_status, g.title, g.sort_title, g.first_release_date,
             g.summary, g.genres, g.tags, g.platforms, g.cover_path, g.hero_path,
+            g.capsule_path,
             g.hltb_main_hours, g.hltb_main_extra_hours, g.hltb_completionist_hours, g.metacritic,
             g.steam_review_desc, g.steam_review_pct, g.steam_review_count,
             g.controller_support, g.metacritic_url, g.vr_supported,
@@ -299,6 +302,7 @@ export async function getGameDetail(userId: number, gameId: number): Promise<Gam
     platforms: toStringArray(g.platforms),
     coverPath: g.cover_path as string | null,
     heroPath: g.hero_path as string | null,
+    capsulePath: g.capsule_path as string | null,
     hltbMainHours: g.hltb_main_hours != null ? Number(g.hltb_main_hours) : null,
     hltbMainExtraHours: g.hltb_main_extra_hours != null ? Number(g.hltb_main_extra_hours) : null,
     hltbCompletionistHours: g.hltb_completionist_hours != null ? Number(g.hltb_completionist_hours) : null,
@@ -341,6 +345,7 @@ export interface GameMetadataPatch {
   summary?: string | null;
   coverPath?: string | null;
   heroPath?: string | null;
+  capsulePath?: string | null;
   firstReleaseDate?: string | null; // YYYY-MM-DD
   metacritic?: number | null;
   hltbMainHours?: number | null;
@@ -392,6 +397,10 @@ export async function updateGameMetadata(
   if (patch.heroPath !== undefined) {
     sets.push('hero_path = ?');
     params.push(patch.heroPath || null);
+  }
+  if (patch.capsulePath !== undefined) {
+    sets.push('capsule_path = ?');
+    params.push(patch.capsulePath || null);
   }
   if (patch.firstReleaseDate !== undefined) {
     sets.push('first_release_date = ?');
@@ -450,30 +459,36 @@ export async function updateGameMetadata(
 export interface ArtworkCandidates {
   grids: string[]; // portrait box-art (cover) options
   heroes: string[]; // wide landscape (hero banner) options
+  capsules: string[]; // wide ~460x215 store capsule options
 }
 
 /**
- * Gather candidate artwork for a title. Grids/heroes come from SteamGridDB
- * (community art, ranked by score); RAWG's background_image is added as a hero
- * option. All sources degrade to empty when their API key is absent.
+ * Gather candidate artwork for a title. Grids/heroes/capsules come from
+ * SteamGridDB (community art, ranked by score); RAWG's background_image is added
+ * as a hero option. All sources degrade to empty when their API key is absent.
  */
 export async function getArtworkCandidates(query: string): Promise<ArtworkCandidates> {
   const grids: string[] = [];
   const heroes: string[] = [];
+  const capsules: string[] = [];
 
   if (isSteamGridDbEnabled()) {
     try {
       const game = await sgdbSearch(query);
       if (game) {
-        const [gridImgs, heroImgs] = await Promise.all([
+        const [gridImgs, heroImgs, capsuleImgs] = await Promise.all([
           sgdbGetGrid(game.id),
           sgdbGetHero(game.id),
+          sgdbGetCapsules(game.id),
         ]);
         if (gridImgs) {
           grids.push(...[...gridImgs].sort((a, b) => b.score - a.score).slice(0, 24).map(i => i.url));
         }
         if (heroImgs) {
           heroes.push(...[...heroImgs].sort((a, b) => b.score - a.score).slice(0, 24).map(i => i.url));
+        }
+        if (capsuleImgs) {
+          capsules.push(...[...capsuleImgs].sort((a, b) => b.score - a.score).slice(0, 24).map(i => i.url));
         }
       }
     } catch (err) {
@@ -494,7 +509,7 @@ export async function getArtworkCandidates(query: string): Promise<ArtworkCandid
     }
   }
 
-  return { grids, heroes };
+  return { grids, heroes, capsules };
 }
 
 /** Look up a game's current title (used to seed artwork search). */
@@ -622,6 +637,14 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
       if (details.metacriticUrl !== null) {
         sets.push('metacritic_url = ?');
         params.push(details.metacriticUrl);
+      }
+      // Refreshed on every enrich rather than only filled when missing: the
+      // store URL carries a ?t= cache-buster that changes whenever Valve
+      // reissues the art. Manually-edited rows are exempt so the sweep never
+      // overwrites a capsule picked in the editor.
+      if (!isManual && details.headerImage !== null) {
+        sets.push('capsule_path = ?');
+        params.push(details.headerImage);
       }
     }
 

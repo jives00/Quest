@@ -93,6 +93,7 @@ export function GameMetadataEditor({
   // Artwork fields
   const [coverPath, setCoverPath] = useState(game.coverPath ?? "");
   const [heroPath, setHeroPath] = useState(game.heroPath ?? "");
+  const [capsulePath, setCapsulePath] = useState(game.capsulePath ?? "");
 
   // Media fields
   const [trailerInput, setTrailerInput] = useState(game.trailerVideoIds[0] ?? "");
@@ -157,6 +158,7 @@ export function GameMetadataEditor({
           hltbMainHours: hltb.trim() ? Number(hltb) : null,
           coverPath: coverPath.trim() || null,
           heroPath: heroPath.trim() || null,
+          capsulePath: capsulePath.trim() || null,
           trailerVideoIds: trailerInput.trim() ? [extractYouTubeId(trailerInput.trim())] : [],
           screenshotImageIds: screenshotIds,
         },
@@ -353,6 +355,56 @@ export function GameMetadataEditor({
             )}
             {art && art.heroes.length === 0 && !artLoading && (
               <p className="text-xs text-on-surface/40 mt-1">No hero art found — paste a URL above or try a different search.</p>
+            )}
+          </div>
+
+          {/* Capsule */}
+          <div>
+            <label className={labelCls}>Store capsule (wide thumbnail)</label>
+            <div className="mb-3">
+              {capsulePath ? (
+                <img src={capsulePath} alt="" className="w-[300px] max-w-full aspect-[460/215] object-cover shadow-lg mb-2" />
+              ) : (
+                <div className="w-[300px] max-w-full aspect-[460/215] bg-surface-container mb-2" />
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={capsulePath}
+                  onChange={(e) => setCapsulePath(e.target.value)}
+                  placeholder="Paste image URL…"
+                  className={inputCls}
+                />
+                {capsulePath && (
+                  <button
+                    onClick={() => setCapsulePath("")}
+                    className="px-3 py-2 rounded-lg text-xs text-on-surface/40 hover:text-red-400 border border-outline-variant/20 transition-colors shrink-0"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-on-surface/40 mt-2">
+                Used for the wide art on the wishlist. Saving any edit marks this game
+                manual, which also stops enrichment refreshing the capsule from Steam.
+              </p>
+            </div>
+            {art && art.capsules.length > 0 && (
+              <div className="grid grid-cols-3 gap-3 max-h-80 overflow-y-auto pr-1">
+                {art.capsules.map((url) => (
+                  <button
+                    key={url}
+                    onClick={() => setCapsulePath(url)}
+                    className={`overflow-hidden border-2 transition-all ${
+                      capsulePath === url ? "border-accent scale-[0.98]" : "border-transparent hover:border-outline-variant"
+                    }`}
+                  >
+                    <img src={url} alt="" className="w-full aspect-[460/215] object-cover" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {art && art.capsules.length === 0 && !artLoading && (
+              <p className="text-xs text-on-surface/40 mt-1">No capsule art found — paste a URL above or try a different search.</p>
             )}
           </div>
         </div>
