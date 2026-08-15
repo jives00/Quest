@@ -45,8 +45,14 @@ export async function statusRoutes(app: FastifyInstance) {
 
       if (status === 'completed') {
         await pool.query(
-          `INSERT INTO game_completions (user_id, game_id, completed_at, source) VALUES (?, ?, NOW(), 'status_change')`,
-          [uid, gameId],
+          `INSERT INTO game_completions (user_id, game_id, completed_at, source)
+           SELECT ?, ?, NOW(), 'status_change'
+             FROM DUAL
+            WHERE NOT EXISTS (
+                  SELECT 1 FROM game_completions
+                   WHERE user_id = ? AND game_id = ? AND DATE(completed_at) = CURDATE()
+                )`,
+          [uid, gameId, uid, gameId],
         );
       }
 

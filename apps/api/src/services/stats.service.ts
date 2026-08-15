@@ -510,6 +510,11 @@ const ACTIVITY_UNION_SQL = `
             gs.status
        FROM game_status gs JOIN games g ON g.id = gs.game_id
       WHERE gs.user_id = ? AND gs.finished_at IS NOT NULL
+        AND NOT EXISTS (
+              SELECT 1 FROM game_completions gc
+               WHERE gc.user_id = gs.user_id AND gc.game_id = gs.game_id
+                 AND DATE(gc.completed_at) = DATE(gs.finished_at)
+            )
 
      UNION ALL
 
