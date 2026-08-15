@@ -82,12 +82,16 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus, gs.status,
+              g.hltb_main_extra_hours AS hltbMainExtraHours,
+              g.hltb_main_hours AS hltbMainHours,
+              g.hltb_completionist_hours AS hltbCompletionistHours,
               MAX(ps.started_at) AS lastPlayedAt
          FROM game_status gs
          JOIN games g ON g.id = gs.game_id
          LEFT JOIN play_sessions ps ON ps.game_id = g.id AND ps.user_id = ?
         WHERE gs.user_id = ? AND gs.status = 'playing'
-        GROUP BY g.id, g.title, g.cover_path, g.match_status, gs.status
+        GROUP BY g.id, g.title, g.cover_path, g.match_status, gs.status,
+                 g.hltb_main_extra_hours, g.hltb_main_hours, g.hltb_completionist_hours
         ORDER BY lastPlayedAt DESC, g.sort_title ASC
         LIMIT 12`,
       [uid, uid],
@@ -101,6 +105,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
       status: r.status as string,
       platforms: [] as string[],
       completionPct: null,
+      hltbMainExtraHours: r.hltbMainExtraHours != null ? Number(r.hltbMainExtraHours) : null,
+      hltbMainHours: r.hltbMainHours != null ? Number(r.hltbMainHours) : null,
+      hltbCompletionistHours: r.hltbCompletionistHours != null ? Number(r.hltbCompletionistHours) : null,
     }));
   });
 
@@ -111,7 +118,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
-              COALESCE(gs.status, 'unplayed') AS status
+              COALESCE(gs.status, 'unplayed') AS status,
+              g.hltb_main_extra_hours AS hltbMainExtraHours,
+              g.hltb_main_hours AS hltbMainHours,
+              g.hltb_completionist_hours AS hltbCompletionistHours
          FROM lists l
          JOIN list_items li ON li.list_id = l.id
          JOIN games g ON g.id = li.game_id
@@ -130,6 +140,9 @@ export async function dashboardRoutes(app: FastifyInstance) {
       status: r.status as string,
       platforms: [] as string[],
       completionPct: null,
+      hltbMainExtraHours: r.hltbMainExtraHours != null ? Number(r.hltbMainExtraHours) : null,
+      hltbMainHours: r.hltbMainHours != null ? Number(r.hltbMainHours) : null,
+      hltbCompletionistHours: r.hltbCompletionistHours != null ? Number(r.hltbCompletionistHours) : null,
     }));
   });
 

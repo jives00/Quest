@@ -98,6 +98,9 @@ export interface LibraryGame {
   matchStatus: MatchStatus;
   firstReleaseDate?: string | null;
   metacritic?: number | null;
+  hltbMainExtraHours?: number | null;
+  hltbMainHours?: number | null;
+  hltbCompletionistHours?: number | null;
 }
 
 export interface IgdbSearchResult {

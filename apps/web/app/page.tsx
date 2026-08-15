@@ -263,10 +263,12 @@ function GameShelf({
   title,
   games,
   emptyMsg,
+  showHltb = false,
 }: {
   title: string;
   games: LibraryGame[];
   emptyMsg: string;
+  showHltb?: boolean;
 }) {
   return (
     <section className="flex flex-col gap-4">
@@ -280,7 +282,7 @@ function GameShelf({
         >
           {games.map((game) => (
             <div key={game.id} className="flex-none w-52">
-              <CoverCard game={game} showBadge={false} />
+              <CoverCard game={game} showBadge={false} showHltb={showHltb} />
             </div>
           ))}
         </div>
@@ -448,11 +450,13 @@ export default function DashboardPage() {
           title="Currently Playing"
           games={playingGames}
           emptyMsg="No games in progress. Mark a game as playing to see it here."
+          showHltb
         />
         <GameShelf
           title="Backlog"
           games={backlogGames}
           emptyMsg="Your backlog is empty. Add games to your backlog list."
+          showHltb
         />
 
         {/* Last 30 days bar chart */}

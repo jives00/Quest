@@ -263,6 +263,7 @@ export default function ListsPage() {
                     <div key={game.id} className="relative">
                       <CoverCard
                         game={game}
+                        showHltb={isBacklog}
                         onClick={() => saveGameNavContext(detail.games.map((g) => g.id), selectedList?.name ?? "List")}
                       />
                       {looksD && (

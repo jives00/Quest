@@ -1,11 +1,26 @@
 import Link from "next/link";
 import type { LibraryGame } from "@/lib/api";
+import { hltbEstimate, formatHltbHours } from "@/lib/hltb";
 
 interface CoverCardProps {
   game: LibraryGame;
   showBadge?: boolean;
   showReleaseDate?: boolean;
+  /** Show the HowLongToBeat playtime estimate on hover over the artwork. */
+  showHltb?: boolean;
   onClick?: () => void;
+}
+
+/** HLTB playtime estimate, revealed on hover over the cover art. */
+function HltbOverlay({ hours, label }: { hours: number; label: string }) {
+  return (
+    <div className="absolute inset-x-0 bottom-0 flex items-baseline gap-1.5 pl-2 pr-10 py-2 bg-black/75 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+      <span className="text-base font-bold text-accent leading-none">{formatHltbHours(hours)}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-white/70 leading-none truncate">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 
@@ -32,8 +47,9 @@ function CompletionRing({ pct }: { pct: number }) {
   );
 }
 
-export function CoverCard({ game, showBadge = true, showReleaseDate = false, onClick }: CoverCardProps) {
+export function CoverCard({ game, showBadge = true, showReleaseDate = false, showHltb = false, onClick }: CoverCardProps) {
   const hasRing = game.completionPct !== null && game.completionPct > 0;
+  const hltb = showHltb ? hltbEstimate(game) : null;
 
   return (
     <Link
@@ -64,6 +80,9 @@ export function CoverCard({ game, showBadge = true, showReleaseDate = false, onC
 
         {/* Completion ring */}
         {hasRing && <CompletionRing pct={game.completionPct!} />}
+
+        {/* HLTB estimate (hover) */}
+        {hltb && <HltbOverlay hours={hltb.hours} label={hltb.label} />}
       </div>
 
       {/* Info bar */}

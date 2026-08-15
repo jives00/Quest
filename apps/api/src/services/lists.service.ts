@@ -21,6 +21,9 @@ export interface ListGameRow {
   sortOrder: number;
   firstReleaseDate: string | null;
   metacritic: number | null;
+  hltbMainExtraHours: number | null;
+  hltbMainHours: number | null;
+  hltbCompletionistHours: number | null;
 }
 
 function slugify(name: string): string {
@@ -92,7 +95,10 @@ export async function getListGames(userId: number, listId: number): Promise<List
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
               COALESCE(gs.status, 'unplayed') AS status, 0 AS sortOrder,
-              g.first_release_date AS firstReleaseDate, g.metacritic
+              g.first_release_date AS firstReleaseDate, g.metacritic,
+              g.hltb_main_extra_hours AS hltbMainExtraHours,
+              g.hltb_main_hours AS hltbMainHours,
+              g.hltb_completionist_hours AS hltbCompletionistHours
          FROM games g
          LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
         WHERE g.vr_supported = 1
@@ -108,6 +114,9 @@ export async function getListGames(userId: number, listId: number): Promise<List
       sortOrder: 0,
       firstReleaseDate: r.firstReleaseDate as string | null,
       metacritic: r.metacritic != null ? Number(r.metacritic) : null,
+      hltbMainExtraHours: r.hltbMainExtraHours != null ? Number(r.hltbMainExtraHours) : null,
+      hltbMainHours: r.hltbMainHours != null ? Number(r.hltbMainHours) : null,
+      hltbCompletionistHours: r.hltbCompletionistHours != null ? Number(r.hltbCompletionistHours) : null,
     }));
   }
 
@@ -115,7 +124,10 @@ export async function getListGames(userId: number, listId: number): Promise<List
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
               COALESCE(gs.status, 'unplayed') AS status, 0 AS sortOrder,
-              g.first_release_date AS firstReleaseDate, g.metacritic
+              g.first_release_date AS firstReleaseDate, g.metacritic,
+              g.hltb_main_extra_hours AS hltbMainExtraHours,
+              g.hltb_main_hours AS hltbMainHours,
+              g.hltb_completionist_hours AS hltbCompletionistHours
          FROM games g
          JOIN ownership o ON o.game_id = g.id AND o.user_id = ? AND o.platform = ?
          LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
@@ -131,6 +143,9 @@ export async function getListGames(userId: number, listId: number): Promise<List
       sortOrder: 0,
       firstReleaseDate: r.firstReleaseDate as string | null,
       metacritic: r.metacritic != null ? Number(r.metacritic) : null,
+      hltbMainExtraHours: r.hltbMainExtraHours != null ? Number(r.hltbMainExtraHours) : null,
+      hltbMainHours: r.hltbMainHours != null ? Number(r.hltbMainHours) : null,
+      hltbCompletionistHours: r.hltbCompletionistHours != null ? Number(r.hltbCompletionistHours) : null,
     }));
   }
 
@@ -138,7 +153,10 @@ export async function getListGames(userId: number, listId: number): Promise<List
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
             COALESCE(gs.status, 'unplayed') AS status, li.sort_order AS sortOrder,
-            g.first_release_date AS firstReleaseDate, g.metacritic
+            g.first_release_date AS firstReleaseDate, g.metacritic,
+            g.hltb_main_extra_hours AS hltbMainExtraHours,
+            g.hltb_main_hours AS hltbMainHours,
+            g.hltb_completionist_hours AS hltbCompletionistHours
        FROM list_items li
        JOIN games g ON g.id = li.game_id
        LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
@@ -156,6 +174,9 @@ export async function getListGames(userId: number, listId: number): Promise<List
     sortOrder: r.sortOrder as number,
     firstReleaseDate: r.firstReleaseDate as string | null,
     metacritic: r.metacritic != null ? Number(r.metacritic) : null,
+    hltbMainExtraHours: r.hltbMainExtraHours != null ? Number(r.hltbMainExtraHours) : null,
+    hltbMainHours: r.hltbMainHours != null ? Number(r.hltbMainHours) : null,
+    hltbCompletionistHours: r.hltbCompletionistHours != null ? Number(r.hltbCompletionistHours) : null,
   }));
 }
 

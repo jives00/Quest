@@ -17,6 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { api } from "../lib/api";
 import type { LibraryGame, QuestListDetail } from "../lib/api";
 import { imgUrl } from "../lib/img";
+import { hltbEstimate, formatHltbHours } from "../lib/hltb";
 import type { SharedDetailParamList } from "../navigation/types";
 
 type Nav = NativeStackNavigationProp<SharedDetailParamList>;
@@ -84,6 +85,7 @@ export default function ListDetailScreen() {
   }
 
   const games = detail?.games ?? [];
+  const isBacklog = detail?.list.systemKey === "backlog";
 
   return (
     <View style={s.root}>
@@ -108,7 +110,9 @@ export default function ListDetailScreen() {
         ListEmptyComponent={
           <Text style={s.empty}>This list is empty.</Text>
         }
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          const hltb = isBacklog ? hltbEstimate(item) : null;
+          return (
           <TouchableOpacity
             style={s.gameRow}
             onPress={() => nav.navigate("GameDetail", { gameId: item.id })}
@@ -130,9 +134,15 @@ export default function ListDetailScreen() {
               {item.status && (
                 <Text style={s.gameStatus}>{item.status}</Text>
               )}
+              {hltb && (
+                <Text style={s.gameHltb}>
+                  {formatHltbHours(hltb.hours)} {hltb.label}
+                </Text>
+              )}
             </View>
           </TouchableOpacity>
-        )}
+          );
+        }}
       />
     </View>
   );
@@ -160,4 +170,5 @@ const s = StyleSheet.create({
   info: { flex: 1 },
   gameName: { color: "#f0f0f6", fontSize: 14, fontWeight: "600" },
   gameStatus: { color: "#888", fontSize: 12, marginTop: 2, textTransform: "capitalize" },
+  gameHltb: { color: "#8ce99a", fontSize: 11, fontWeight: "600", marginTop: 2 },
 });

@@ -16,6 +16,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../contexts/AuthContext";
 import { api } from "../lib/api";
 import { imgUrl } from "../lib/img";
+import { hltbEstimate, formatHltbHours } from "../lib/hltb";
 import { ctDateKey, formatMinutes, formatRelativeDate } from "../lib/format";
 import type { SharedDetailParamList } from "../navigation/types";
 import type {
@@ -134,6 +135,7 @@ export default function DashboardScreen() {
               renderItem={({ item }) => (
                 <GameCoverCard
                   game={item}
+                  showHltb
                   onPress={() => nav.navigate("GameDetail", { gameId: item.id })}
                 />
               )}
@@ -153,6 +155,7 @@ export default function DashboardScreen() {
               renderItem={({ item }) => (
                 <GameCoverCard
                   game={item}
+                  showHltb
                   onPress={() => nav.navigate("GameDetail", { gameId: item.id })}
                 />
               )}
@@ -186,26 +189,38 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function GameCoverCard({
   game,
   onPress,
+  showHltb = false,
 }: {
   game: LibraryGame;
   onPress: () => void;
+  /** Show the HowLongToBeat playtime estimate over the artwork. */
+  showHltb?: boolean;
 }) {
+  const hltb = showHltb ? hltbEstimate(game) : null;
+
   return (
     <TouchableOpacity onPress={onPress}>
       <View style={s.coverCard}>
-        {imgUrl(game.coverPath) ? (
-          <Image
-            source={{ uri: imgUrl(game.coverPath)! }}
-            style={s.coverImg}
-            contentFit="cover"
-          />
-        ) : (
-          <View style={[s.coverImg, s.coverFallback]}>
-            <Text style={s.coverFallbackText} numberOfLines={2}>
-              {game.title}
-            </Text>
-          </View>
-        )}
+        <View>
+          {imgUrl(game.coverPath) ? (
+            <Image
+              source={{ uri: imgUrl(game.coverPath)! }}
+              style={s.coverImg}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[s.coverImg, s.coverFallback]}>
+              <Text style={s.coverFallbackText} numberOfLines={2}>
+                {game.title}
+              </Text>
+            </View>
+          )}
+          {hltb && (
+            <View style={s.hltbBadge}>
+              <Text style={s.hltbText}>{formatHltbHours(hltb.hours)}</Text>
+            </View>
+          )}
+        </View>
         <Text style={s.coverLabel} numberOfLines={2}>
           {game.title}
         </Text>
@@ -317,6 +332,16 @@ const s = StyleSheet.create({
   coverFallback: { backgroundColor: "#313e52", justifyContent: "center", alignItems: "center", padding: 6 },
   coverFallbackText: { fontSize: 10, color: "#888", textAlign: "center" },
   coverLabel: { fontSize: 11, color: "#d7d8e2", marginTop: 5, lineHeight: 14 },
+  hltbBadge: {
+    position: "absolute",
+    bottom: 4,
+    left: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: "rgba(0,0,0,0.75)",
+  },
+  hltbText: { fontSize: 10, fontWeight: "700", color: "#8ce99a" },
 
   graphBox: {
     marginHorizontal: 16,
