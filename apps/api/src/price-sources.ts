@@ -25,7 +25,7 @@ export const PRICE_SOURCE_LABELS: Record<PriceSource, string> = {
 /** Provider backing each source, for display in settings. */
 export const PRICE_SOURCE_PROVIDERS: Record<PriceSource, string> = {
   pc: 'IsThereAnyDeal',
-  psn: 'PlayStation Store',
+  psn: 'PlayStation Store + Deku Deals',
   xbox: 'not yet integrated',
   meta: 'queststoredb.com',
 };

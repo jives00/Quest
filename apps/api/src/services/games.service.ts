@@ -25,6 +25,7 @@ import { resolvePriceSource } from './pricing.service';
 import { getMetaPrice, lookupMetaAppId } from './meta-store.client';
 import { getPsnStorePrice } from './psn-store.client';
 import { getPsnPrice as getNexardaPsnPrice } from './nexarda.client';
+import { getDekuPhysicalPsPrice } from './dekudeals.client';
 import {
   isFresh,
   readCachedPrice,
@@ -968,16 +969,27 @@ async function fetchMetaPrice(gameId: number): Promise<PricePayload | null> {
 }
 
 /**
- * PlayStation price for a game, looked up by title.
+ * PlayStation price for a game — the cheapest way to actually buy it, digital
+ * or on a disc, looked up by title.
  *
- * Sony's own storefront first — it prices the whole PS Store with exact list
- * and discount figures. NEXARDA backs it up, because the Sony call depends on
- * a persisted-query hash that only a human can re-capture when it rotates
- * (see psn-store.client). NEXARDA's catalog is a subset of the store's, so it
- * is strictly the weaker source and never runs first.
+ * Two upstreams, because a PlayStation game has two prices and Sony only knows
+ * one of them:
+ *  - Digital: Sony's own storefront, which prices the whole PS Store with exact
+ *    list and discount figures. NEXARDA backs it up, because the Sony call
+ *    depends on a persisted-query hash that only a human can re-capture when it
+ *    rotates (see psn-store.client). NEXARDA's catalog is a subset of the
+ *    store's, so it is strictly the weaker source and never runs first.
+ *  - Physical: Deku Deals, which tracks the disc across Amazon/Best Buy/Walmart
+ *    and friends. Discs routinely undercut the digital copy by a wide margin
+ *    once a game is a year old, so quoting Sony alone overstated the price.
  *
- * Neither provider exposes price history, so `lowest` stays null rather than
- * inventing an all-time low.
+ * Whichever is cheaper wins, and `shop` says which — "PlayStation Store" or
+ * "Amazon (physical)". A failure on either side is not fatal: the other still
+ * answers, which is why these are settled independently rather than as a pair.
+ *
+ * `lowest` comes from Deku Deals' per-retailer history, filtered to the
+ * PlayStation columns. Sony publishes no history at all, so before this a PS
+ * game never had an all-time low to show.
  */
 async function fetchPsnPrice(gameId: number, country: string): Promise<PricePayload | null> {
   const [rows] = await getPool().query<RowDataPacket[]>(
@@ -987,19 +999,30 @@ async function fetchPsnPrice(gameId: number, country: string): Promise<PricePayl
   if (!rows.length) return null;
 
   const title = rows[0].title as string;
-  const price =
-    (await getPsnStorePrice(title, country)) ?? (await getNexardaPsnPrice(title, country));
-  if (!price) return null;
+  const [digital, physical] = await Promise.all([
+    (async () =>
+      (await getPsnStorePrice(title, country)) ?? (await getNexardaPsnPrice(title, country)))(),
+    getDekuPhysicalPsPrice(title, country),
+  ]);
+
+  const cheapest =
+    digital && physical ? (physical.price < digital.price ? physical : digital) : digital ?? physical;
+  if (!cheapest) return null;
 
   return {
     current: {
-      price: price.price,
-      regular: price.regular,
-      cut: price.cut,
-      shop: price.shop,
-      url: price.url,
+      price: cheapest.price,
+      regular: cheapest.regular,
+      cut: cheapest.cut,
+      shop: cheapest.shop,
+      url: cheapest.url,
     },
-    lowest: null,
+    // Only Deku Deals knows the history. Clamp to whatever we are quoting so a
+    // gap in their data can never read as "all-time low above current price".
+    lowest:
+      physical?.lowest != null
+        ? { price: Math.min(physical.lowest, cheapest.price) }
+        : null,
   };
 }
 
