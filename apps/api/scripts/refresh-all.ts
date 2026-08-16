@@ -9,7 +9,8 @@
  *   --heroes-only    Only backfill hero art.
  *   --capsules-only  Only backfill capsule art for non-Steam games.
  *   --force-hero     Overwrite existing hero_path (default: only fill missing).
- *   --force-capsule  Overwrite existing capsule_path (default: only fill missing).
+ *   --force-capsule  Overwrite an auto-sourced capsule_path (default: only fill
+ *                    missing). Hand-picked capsules are never touched.
  *   --limit=N        Process at most N games (useful for a test run).
  *
  * Capsule note: Steam-linked games get their capsule from the store API inside
@@ -21,6 +22,15 @@
  * unlike the in-app artwork editor) and by default skips games that already have
  * a hero. A delay between games keeps us under the Steam/HLTB/SteamGridDB rate
  * limits.
+ *
+ * Art state is re-read per game right before writing rather than trusted from the
+ * snapshot taken at startup. A full run takes many minutes, so a capsule picked in
+ * the editor while the run is in flight would otherwise be judged "missing" from
+ * stale data and overwritten -- editing art during a run is exactly when you are
+ * most likely to be running this.
+ *
+ * Hand-picked capsules (capsule_manual = 1) are skipped outright, --force-capsule
+ * included. Hero art has no such flag yet, so --force-hero still overwrites one.
  */
 
 import { config } from 'dotenv';
@@ -107,16 +117,27 @@ async function main() {
 
       // Steam-linked games are covered by enrichGame above; only non-Steam
       // entries need the SteamGridDB fallback.
-      if (
-        doCapsules &&
-        !g.steam_app_id &&
-        (forceCapsule || !g.capsule_path)
-      ) {
-        const capsule = await getBestCapsuleUrl(g.title);
-        if (capsule) {
-          await pool.query(`UPDATE games SET capsule_path = ? WHERE id = ?`, [capsule, g.id]);
-          capsulesSet++;
-          console.log(`${tag} — capsule set`);
+      if (doCapsules && !g.steam_app_id && (forceCapsule || !g.capsule_path)) {
+        const [[fresh]] = await pool.query<RowDataPacket[]>(
+          `SELECT capsule_path, capsule_manual FROM games WHERE id = ?`,
+          [g.id],
+        );
+        // Re-checked against the live row, not the startup snapshot: a capsule
+        // picked in the editor mid-run must survive.
+        const skip = fresh?.capsule_manual
+          ? 'hand-picked'
+          : !forceCapsule && fresh?.capsule_path
+            ? 'set since this run started'
+            : null;
+        if (skip) {
+          console.log(`${tag} — capsule ${skip}, left alone`);
+        } else {
+          const capsule = await getBestCapsuleUrl(g.title);
+          if (capsule) {
+            await pool.query(`UPDATE games SET capsule_path = ? WHERE id = ?`, [capsule, g.id]);
+            capsulesSet++;
+            console.log(`${tag} — capsule set`);
+          }
         }
       }
     } catch (err) {

@@ -402,6 +402,11 @@ export async function updateGameMetadata(
   if (patch.capsulePath !== undefined) {
     sets.push('capsule_path = ?');
     params.push(patch.capsulePath || null);
+    // Flag the capsule as hand-picked so neither enrichment nor the refresh-all
+    // art pass overwrites it. Clearing the field clears the flag too, which hands
+    // the game back to the automatic sources.
+    sets.push('capsule_manual = ?');
+    params.push(patch.capsulePath ? 1 : 0);
   }
   if (patch.firstReleaseDate !== undefined) {
     sets.push('first_release_date = ?');
@@ -563,7 +568,7 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT g.title, g.match_status, g.metacritic, g.hltb_main_hours,
             g.hltb_main_extra_hours, g.hltb_completionist_hours,
-            g.igdb_id, g.first_release_date, g.vr_manual,
+            g.igdb_id, g.first_release_date, g.vr_manual, g.capsule_manual,
             g.trailer_video_ids, g.screenshot_image_ids,
             (SELECT e.external_id FROM external_game_ids e
                WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steam_app_id
@@ -577,6 +582,7 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
   const title = row.title as string;
   const isManual = row.match_status === 'manual';
   const vrManual = Boolean(row.vr_manual);
+  const capsuleManual = Boolean(row.capsule_manual);
   const igdbId = row.igdb_id as number | null;
   const currentReleaseDate = row.first_release_date as string | null;
   const hasTrailers = row.trailer_video_ids != null;
@@ -641,9 +647,11 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
       }
       // Refreshed on every enrich rather than only filled when missing: the
       // store URL carries a ?t= cache-buster that changes whenever Valve
-      // reissues the art. Manually-edited rows are exempt so the sweep never
-      // overwrites a capsule picked in the editor.
-      if (!isManual && details.headerImage !== null) {
+      // reissues the art, and newer apps sit under a content-hash directory that
+      // 404s outright once the art is reissued. Gated on capsule_manual rather
+      // than match_status: only a hand-picked capsule is off limits, so editing
+      // a title no longer freezes that game's art at a URL that will rot.
+      if (!capsuleManual && details.headerImage !== null) {
         sets.push('capsule_path = ?');
         params.push(details.headerImage);
       }
