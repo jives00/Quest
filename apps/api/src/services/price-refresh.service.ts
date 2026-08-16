@@ -6,7 +6,8 @@
 // prices. Pricing is wishlist-scoped, not platform-scoped.
 //
 // Keeping the cache warm here means page loads only ever read the DB, which is
-// what makes a metered upstream (PlatPrices' 1,000 requests/month) viable.
+// what makes rate-limited upstreams viable — NEXARDA blocks traffic it deems
+// abusive, and queststoredb asks for a 10s crawl delay.
 // ---------------------------------------------------------------------------
 
 import { refreshPriceIfStale } from './games.service';

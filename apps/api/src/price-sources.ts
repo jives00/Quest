@@ -25,7 +25,7 @@ export const PRICE_SOURCE_LABELS: Record<PriceSource, string> = {
 /** Provider backing each source, for display in settings. */
 export const PRICE_SOURCE_PROVIDERS: Record<PriceSource, string> = {
   pc: 'IsThereAnyDeal',
-  psn: 'PlatPrices',
+  psn: 'PlayStation Store',
   xbox: 'not yet integrated',
   meta: 'queststoredb.com',
 };
@@ -45,7 +45,6 @@ export const IMPLEMENTED_PRICE_SOURCES: PriceSource[] = ['pc', 'psn', 'meta'];
  */
 const SOURCE_ENV_KEY: Partial<Record<PriceSource, string>> = {
   pc: 'ITAD_API_KEY',
-  psn: 'PLATPRICES_API_KEY',
 };
 
 /** Whether this source has a provider AND whatever credentials it needs. */

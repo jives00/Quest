@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
 // Price cache — read-through storage for storefront lookups.
 //
-// Every upstream provider is rate-limited (PlatPrices' free tier is 1,000
-// requests/month), and the wishlist asks for one price per row per page load.
-// Without this, a 30-game wishlist burns a monthly quota in ~33 page views.
+// Every upstream provider is rate-limited or scrape-paced, and the wishlist
+// asks for one price per row per page load. Without this, a 30-game wishlist
+// would hammer NEXARDA and queststoredb on every single visit.
 // ---------------------------------------------------------------------------
 
 import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';

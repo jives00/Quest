@@ -23,7 +23,8 @@ import { searchHltb, isHltbEnabled } from './hltb.client';
 import { lookupGame, getPriceOverview, isItadEnabled } from './itad.client';
 import { resolvePriceSource } from './pricing.service';
 import { getMetaPrice, lookupMetaAppId } from './meta-store.client';
-import { getPsnPrice } from './platprices.client';
+import { getPsnStorePrice } from './psn-store.client';
+import { getPsnPrice as getNexardaPsnPrice } from './nexarda.client';
 import {
   isFresh,
   readCachedPrice,
@@ -961,8 +962,14 @@ async function fetchMetaPrice(gameId: number): Promise<PricePayload | null> {
 /**
  * PlayStation price for a game, looked up by title.
  *
- * PlatPrices exposes price history but no single all-time-low field, so
- * `lowest` stays null rather than inventing one.
+ * Sony's own storefront first — it prices the whole PS Store with exact list
+ * and discount figures. NEXARDA backs it up, because the Sony call depends on
+ * a persisted-query hash that only a human can re-capture when it rotates
+ * (see psn-store.client). NEXARDA's catalog is a subset of the store's, so it
+ * is strictly the weaker source and never runs first.
+ *
+ * Neither provider exposes price history, so `lowest` stays null rather than
+ * inventing an all-time low.
  */
 async function fetchPsnPrice(gameId: number, country: string): Promise<PricePayload | null> {
   const [rows] = await getPool().query<RowDataPacket[]>(
@@ -971,7 +978,9 @@ async function fetchPsnPrice(gameId: number, country: string): Promise<PricePayl
   );
   if (!rows.length) return null;
 
-  const price = await getPsnPrice(rows[0].title as string, country);
+  const title = rows[0].title as string;
+  const price =
+    (await getPsnStorePrice(title, country)) ?? (await getNexardaPsnPrice(title, country));
   if (!price) return null;
 
   return {
