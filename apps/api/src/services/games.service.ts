@@ -1026,6 +1026,45 @@ async function fetchPsnPrice(gameId: number, country: string): Promise<PricePayl
   };
 }
 
+/** Store ids that identify a game exactly, per price source. */
+const SOURCE_ID_COLUMNS: Record<PriceSource, string[]> = {
+  pc: ['steam_appid', 'epic', 'gog'],
+  psn: ['psn_concept'],
+  xbox: ['xbox'],
+  meta: ['meta_quest'],
+};
+
+/**
+ * True when this game cannot be safely looked up by name on this source.
+ *
+ * An unannounced game has no store listing anywhere, but every provider's
+ * search will still answer with *something* — usually the franchise's previous
+ * entry. That is how "God of War Laufey" came back priced at $19.99: it is the
+ * 2018 original, which is a title-prefix of it.
+ *
+ * So: no announced release date AND no exact store id means no lookup. The
+ * wishlist renders that as "awaiting store listing", which is the truth.
+ * A game with a store id is identified exactly and is never blocked here.
+ */
+async function isUnidentifiable(source: PriceSource, gameId: number): Promise<boolean> {
+  const idSources = SOURCE_ID_COLUMNS[source];
+  const [rows] = await getPool().query<RowDataPacket[]>(
+    `SELECT g.title, g.first_release_date AS releaseDate,
+            (SELECT COUNT(*) FROM external_game_ids e
+              WHERE e.game_id = g.id AND e.source IN (?)) AS idCount
+       FROM games g WHERE g.id = ?`,
+    [idSources, gameId],
+  );
+  const row = rows[0];
+  if (!row) return true;
+  if (row.releaseDate != null || Number(row.idCount) > 0) return false;
+
+  console.log(
+    `[price] skipping ${source} lookup for unannounced game ${gameId} ("${row.title}")`,
+  );
+  return true;
+}
+
 /**
  * Fetch a price from the upstream provider for `source`.
  *
@@ -1042,6 +1081,8 @@ async function fetchPriceFromSource(
   gameId: number,
   country: string,
 ): Promise<PricePayload | null> {
+  if (await isUnidentifiable(source, gameId)) return null;
+
   if (source === 'meta') return fetchMetaPrice(gameId);
   if (source === 'psn') return fetchPsnPrice(gameId, country);
   if (source !== 'pc') return null;
@@ -1052,7 +1093,7 @@ async function fetchPriceFromSource(
   }
 
   const [rows] = await getPool().query<RowDataPacket[]>(
-    `SELECT g.title, g.first_release_date AS releaseDate,
+    `SELECT g.title,
             (SELECT e.external_id FROM external_game_ids e
                WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steam_app_id
        FROM games g WHERE g.id = ?`,
@@ -1063,20 +1104,12 @@ async function fetchPriceFromSource(
     return null;
   }
 
-  const {
-    title,
-    releaseDate,
-    steam_app_id: appid,
-  } = rows[0] as { title: string; releaseDate: Date | string | null; steam_app_id: string | null };
-
-  // A game with no announced release date and no store id cannot be identified
-  // by name alone: ITAD's title search is fuzzy, so an unannounced sequel gets
-  // answered with the decades-old original and we quote its price. No price is
-  // the honest answer here — the wishlist renders that as "awaiting listing".
-  if (!appid && releaseDate == null) {
-    console.log(`[ITAD] skipping title lookup for unreleased game ${gameId} ("${title}")`);
-    return null;
-  }
+  // The unannounced-game guard that used to live here now runs for every
+  // source in fetchPriceFromSource — the failure mode was never ITAD-specific.
+  const { title, steam_app_id: appid } = rows[0] as {
+    title: string;
+    steam_app_id: string | null;
+  };
 
   const itadGame = await lookupGame({ appid: appid ?? undefined, title });
   if (!itadGame) {

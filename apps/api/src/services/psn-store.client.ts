@@ -208,6 +208,36 @@ async function search(term: string, country: string): Promise<SearchResult[] | n
 // ---------------------------------------------------------------------------
 
 /**
+ * Words that can pad out a title without changing which game it is.
+ *
+ * Everything else — a subtitle, a number — marks a DIFFERENT product, and that
+ * distinction is the whole point: "God of War Laufey" is prefixed by "God of
+ * War", and matching on the prefix alone quoted the 2018 original's $19.99 for
+ * an unannounced sequel.
+ */
+const EDITION_WORDS = new Set([
+  'the', 'a', 'game', 'of', 'year', 'edition', 'ed', 'complete', 'definitive',
+  'deluxe', 'ultimate', 'premium', 'standard', 'gold', 'goty', 'remastered',
+  'remaster', 'enhanced', 'anniversary', 'legendary', 'special', 'collection',
+  'collectors', 'collector', 'bundle', 'upgrade', 'hd', 'directors', 'director',
+  'cut', 'digital', 'classic', 'expanded', 'full', 'version', 's', 'ps4', 'ps5',
+]);
+
+/**
+ * True when `longer` is `shorter` plus nothing but edition/version padding.
+ * Both arguments are already normalized.
+ */
+function isEditionVariantOf(longer: string, shorter: string): boolean {
+  if (!longer.startsWith(shorter)) return false;
+  const rest = longer.slice(shorter.length).trim();
+  if (!rest) return true;
+  // A prefix must end on a word boundary: "god of war" is not a prefix of
+  // "god of warriors" in any useful sense.
+  if (longer[shorter.length] !== ' ') return false;
+  return rest.split(' ').every((w) => EDITION_WORDS.has(w));
+}
+
+/**
  * Pick the listing that is actually the requested game.
  *
  * Deliberately strict: a search for "Ghost of Yotei" ranks "Ghostbusters:
@@ -238,8 +268,12 @@ function pickListing(results: SearchResult[], title: string): SearchResult | nul
   const exact = sellable.filter((s) => s.name === want);
   if (exact.length) return best(exact);
 
-  // "Foo" vs "Foo Complete Edition" — accept, but nothing looser.
-  const prefix = sellable.filter((s) => s.name.startsWith(want) || want.startsWith(s.name));
+  // "Foo" vs "Foo Complete Edition" — accept, but nothing looser. The leftover
+  // words have to be edition noise in whichever direction they fall; a bare
+  // prefix test in either direction matches a game against its own sequel.
+  const prefix = sellable.filter(
+    (s) => isEditionVariantOf(s.name, want) || isEditionVariantOf(want, s.name),
+  );
   if (prefix.length) return best(prefix);
 
   return null;
