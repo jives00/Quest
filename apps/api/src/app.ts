@@ -31,6 +31,7 @@ import { platformOverridesRoutes } from './routes/platform-overrides.routes';
 import { appVersionRoutes } from './routes/app-version.routes';
 import { achievementsRoutes } from './routes/achievements.routes';
 import { pricingRoutes } from './routes/pricing.routes';
+import { ingestRoutes } from './routes/ingest.routes';
 
 export function buildApp(): FastifyInstance {
   const app = Fastify({
@@ -86,6 +87,7 @@ export function buildApp(): FastifyInstance {
   void app.register(appVersionRoutes, { prefix: '/api' });
   void app.register(achievementsRoutes, { prefix: '/api' });
   void app.register(pricingRoutes, { prefix: '/api' });
+  void app.register(ingestRoutes, { prefix: '/api' });
 
   return app;
 }

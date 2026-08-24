@@ -25,7 +25,10 @@ export type ExternalSource =
   | 'xbox'
   | 'epic'
   | 'gog'
-  | 'meta_quest';
+  | 'meta_quest'
+  /** Steam-local "Add a Non-Steam Game" shortcut id — per-machine, and numerically
+   *  overlapping real Steam appids, so it must not share 'steam_appid'. */
+  | 'steam_nonsteam';
 export type { Platform } from '../platforms';
 
 export interface ResolveInput {
