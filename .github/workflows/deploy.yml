@@ -63,6 +63,15 @@ jobs:
         # it. Do not pin back to v3.
         uses: android-actions/setup-android@v4
       - run: pnpm install --frozen-lockfile
+      - name: Build @quest/types
+        # Metro resolves @quest/types through its `main` field (dist/index.js),
+        # which only exists after a build. This was invisible while mobile
+        # imported nothing but `type`s from it — those erase at compile time and
+        # never reach the bundler. The moment a runtime value is imported
+        # (GAME_STATUSES), createBundleReleaseJsAndAssets fails on the missing
+        # dist. The api/web Docker images build it as part of their own stage,
+        # so this job is the only one that has to ask.
+        run: pnpm --filter @quest/types build
       - name: Write mobile .env
         run: |
           echo "EXPO_PUBLIC_API_URL=http://${{ secrets.TAILSCALE_HOSTNAME }}:3007" > apps/mobile/.env
