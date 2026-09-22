@@ -57,7 +57,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        # v3 installs the obsolete `tools` SDK package by default, which Google
+        # no longer publishes — sdkmanager exits 1 with "Failed to find package
+        # 'tools'" and the job dies before any Quest code is touched. v4 dropped
+        # it. Do not pin back to v3.
+        uses: android-actions/setup-android@v4
       - run: pnpm install --frozen-lockfile
       - name: Write mobile .env
         run: |
