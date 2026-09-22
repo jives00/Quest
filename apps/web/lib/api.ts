@@ -1,12 +1,11 @@
-import type { LoginResponse } from "@quest/types";
+import type { GameStatus, LoginResponse, SystemKey } from "@quest/types";
 
-export type { LoginResponse };
+export type { GameStatus, LoginResponse, SystemKey };
 
 // ─── Domain types ──────────────────────────────────────────────────────────
 
 export type Platform = "steam" | "psn" | "xbox" | "epic" | "gog" | "meta_quest";
 export type ImportSource = Platform;
-export type GameStatus = "unplayed" | "playing" | "completed" | "other";
 
 export const PLATFORM_LABELS: Record<Platform, string> = {
   steam: "Windows/Steam",
@@ -18,7 +17,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
 };
 export type MatchStatus = "matched" | "provisional" | "manual";
 export type ListKind = "system" | "platform" | "custom";
-export type SystemKey = "backlog" | "wishlist" | "replay" | "vr";
+
 
 export interface NowPlayingInfo {
   gameId: number;
@@ -64,6 +63,7 @@ export interface DashboardResponse {
 export interface DashboardSummary {
   totalGames: number;
   lifetimeMin: number;
+  /** Completed + skipped — everything you're done with, not just finished. */
   finishedCount: number;
   perfectCount: number;
   artPaths: string[];
@@ -290,7 +290,7 @@ export interface GameCompletion {
 // ─── Play history / timeline ─────────────────────────────────────────────────
 
 export type HistoryPrecision = "exact" | "day" | "month" | "year" | "era";
-export type HistoryStatus = "playing" | "completed" | "other";
+export type HistoryStatus = "playing" | "completed";
 export type TimelineKind = "session" | "achievement" | "manual" | "status";
 
 export interface TimelineItem {
@@ -405,7 +405,7 @@ export interface PerfectGame {
   achievementCount: number;
 }
 
-export type ActivityEventType = "session" | "achievement" | "completion" | "status" | "wishlist" | "backlog" | "ownership";
+export type ActivityEventType = "session" | "achievement" | "completion" | "status" | "ownership";
 
 export interface ActivityEvent {
   type: ActivityEventType;

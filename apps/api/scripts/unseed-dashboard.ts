@@ -43,7 +43,7 @@ async function main() {
   );
   console.log(`Deleted ${sessRes.affectedRows} seeded play sessions.`);
 
-  // ── Revert statuses back to unplayed (only if no real sessions exist) ─────
+  // ── Clear seeded statuses (only if no real sessions exist) ───────────────
   // We only touch game_status rows where the user has no non-derived sessions,
   // so we don't clobber any real progress that happened to be set the same way.
   const [statusRes] = await conn.query<ResultSetHeader>(

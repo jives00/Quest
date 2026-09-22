@@ -85,7 +85,9 @@ export default function ListDetailScreen() {
   }
 
   const games = detail?.games ?? [];
-  const isBacklog = detail?.list.systemKey === "backlog";
+  // Replay doubles as the favourites shelf you shop from when queuing
+  // something to Backlog, so it's the one list where a length estimate helps.
+  const isReplay = detail?.list.systemKey === "replay";
 
   return (
     <View style={s.root}>
@@ -111,7 +113,7 @@ export default function ListDetailScreen() {
           <Text style={s.empty}>This list is empty.</Text>
         }
         renderItem={({ item }) => {
-          const hltb = isBacklog ? hltbEstimate(item) : null;
+          const hltb = isReplay ? hltbEstimate(item) : null;
           return (
           <TouchableOpacity
             style={s.gameRow}

@@ -1,5 +1,9 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { LibraryGame } from "@/lib/api";
+import { GAME_STATUS_LABELS } from "@quest/types";
+import type { GameStatus, LibraryGame } from "@/lib/api";
 import { hltbEstimate, formatHltbHours } from "@/lib/hltb";
 
 interface CoverCardProps {
@@ -8,7 +12,80 @@ interface CoverCardProps {
   showReleaseDate?: boolean;
   /** Show the HowLongToBeat playtime estimate on hover over the artwork. */
   showHltb?: boolean;
+  /**
+   * Enables the hover menu of contextual status moves. Queuing a replay or
+   * starting a game shouldn't require opening it, so the grid offers the same
+   * moves the Shelf block does.
+   */
+  onQuickStatus?: (gameId: number, status: GameStatus) => void;
   onClick?: () => void;
+}
+
+/** The same next-move shortcuts the Shelf block offers, minus the Replay
+ *  toggle — list membership isn't in the grid's payload. */
+function gridActions(status: string | null): GameStatus[] {
+  switch (status) {
+    case "wishlist":   return ["backlog"];
+    case "backlog":    return ["playing", "skipped"];
+    case "playing":    return ["completed", "backlog"];
+    case "completed":  return ["backlog", "playing"];
+    case "skipped":    return ["backlog", "playing"];
+    default:           return ["backlog", "playing", "completed"];
+  }
+}
+
+function QuickStatusMenu({
+  game,
+  onPick,
+}: {
+  game: LibraryGame;
+  onPick: (gameId: number, status: GameStatus) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="absolute top-1.5 right-1.5 z-10">
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen((v) => !v);
+        }}
+        aria-label="Change status"
+        className={`flex items-center justify-center w-7 h-7 rounded-full bg-black/70 text-white/80 hover:text-white transition-opacity ${
+          open ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+        }`}
+      >
+        <span className="material-symbols-outlined text-base" style={{ fontSize: "16px" }}>more_horiz</span>
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-1 min-w-[10rem] rounded-lg bg-surface-container-high border border-outline-variant/40 shadow-lg overflow-hidden">
+          {gridActions(game.status).map((s) => (
+            <button
+              key={s}
+              onClick={(e) => {
+                e.preventDefault();
+                setOpen(false);
+                onPick(game.id, s);
+              }}
+              className="w-full text-left px-3 py-2 text-xs font-semibold text-on-surface/80 hover:bg-accent/15 hover:text-accent transition-colors"
+            >
+              {GAME_STATUS_LABELS[s]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** HLTB playtime estimate, revealed on hover over the cover art. */
@@ -47,15 +124,17 @@ function CompletionRing({ pct }: { pct: number }) {
   );
 }
 
-export function CoverCard({ game, showBadge = true, showReleaseDate = false, showHltb = false, onClick }: CoverCardProps) {
+export function CoverCard({ game, showBadge = true, showReleaseDate = false, showHltb = false, onQuickStatus, onClick }: CoverCardProps) {
   const hasRing = game.completionPct !== null && game.completionPct > 0;
   const hltb = showHltb ? hltbEstimate(game) : null;
 
-  return (
+  // The menu holds <button>s, which can't legally nest inside the card's <a>,
+  // so it sits alongside the link rather than inside it.
+  const card = (
     <Link
       href={`/games/${game.id}`}
       onClick={onClick}
-      className="group relative block overflow-hidden bg-surface-container-low border border-outline-variant/20 hover:border-accent/40 transition-all duration-200 green-glow-hover"
+      className="block overflow-hidden bg-surface-container-low border border-outline-variant/20 hover:border-accent/40 transition-all duration-200 green-glow-hover"
     >
       {/* Cover art */}
       <div className="aspect-[264/374] relative overflow-hidden bg-surface-container">
@@ -97,5 +176,14 @@ export function CoverCard({ game, showBadge = true, showReleaseDate = false, sho
         )}
       </div>
     </Link>
+  );
+
+  if (!onQuickStatus) return <div className="group relative">{card}</div>;
+
+  return (
+    <div className="group relative">
+      {card}
+      <QuickStatusMenu game={game} onPick={onQuickStatus} />
+    </div>
   );
 }

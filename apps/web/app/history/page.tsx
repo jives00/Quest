@@ -36,8 +36,6 @@ const TYPES: { value: ActivityEventType | ""; label: string }[] = [
   { value: "achievement", label: ACTIVITY_TYPE_LABELS.achievement },
   { value: "completion", label: ACTIVITY_TYPE_LABELS.completion },
   { value: "status", label: ACTIVITY_TYPE_LABELS.status },
-  { value: "wishlist", label: ACTIVITY_TYPE_LABELS.wishlist },
-  { value: "backlog", label: ACTIVITY_TYPE_LABELS.backlog },
   { value: "ownership", label: ACTIVITY_TYPE_LABELS.ownership },
 ];
 

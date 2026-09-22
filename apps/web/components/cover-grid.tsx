@@ -1,4 +1,4 @@
-import type { LibraryGame } from "@/lib/api";
+import type { GameStatus, LibraryGame } from "@/lib/api";
 import { saveGameNavContext } from "@/lib/game-nav-context";
 import { CoverCard } from "./cover-card";
 
@@ -9,9 +9,11 @@ interface CoverGridProps {
   emptyMessage?: string;
   navLabel?: string;
   gridClass?: string;
+  /** Pass through to enable the per-card hover status menu. */
+  onQuickStatus?: (gameId: number, status: GameStatus) => void;
 }
 
-export function CoverGrid({ games, showBadge = true, showReleaseDate = false, emptyMessage = "No games found.", navLabel, gridClass }: CoverGridProps) {
+export function CoverGrid({ games, showBadge = true, showReleaseDate = false, emptyMessage = "No games found.", navLabel, gridClass, onQuickStatus }: CoverGridProps) {
   if (games.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -29,6 +31,7 @@ export function CoverGrid({ games, showBadge = true, showReleaseDate = false, em
           game={game}
           showBadge={showBadge}
           showReleaseDate={showReleaseDate}
+          onQuickStatus={onQuickStatus}
           onClick={navLabel ? () => saveGameNavContext(games.map((g) => g.id), navLabel) : undefined}
         />
       ))}

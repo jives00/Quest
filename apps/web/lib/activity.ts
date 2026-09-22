@@ -1,13 +1,13 @@
-import { Gamepad2, Trophy, CheckCircle2, Tag, Bookmark, Clock, Package } from "lucide-react";
+import { Gamepad2, Trophy, CheckCircle2, Tag, Package } from "lucide-react";
 import type { ActivityEventType } from "./api";
 
+// Wishlist and Backlog dropped out as event types when they became statuses —
+// both now arrive as `status` events, carrying the status in `extra`.
 export const ACTIVITY_ICONS: Record<ActivityEventType, React.ComponentType<{ className?: string }>> = {
   session: Gamepad2,
   achievement: Trophy,
   completion: CheckCircle2,
   status: Tag,
-  wishlist: Bookmark,
-  backlog: Clock,
   ownership: Package,
 };
 
@@ -16,8 +16,6 @@ export const ACTIVITY_COLORS: Record<ActivityEventType, string> = {
   achievement: "text-yellow-400",
   completion: "text-green-400",
   status: "text-purple-400",
-  wishlist: "text-pink-400",
-  backlog: "text-orange-400",
   ownership: "text-cyan-400",
 };
 
@@ -26,7 +24,5 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityEventType, string> = {
   achievement: "Achievement",
   completion: "Completion",
   status: "Status Change",
-  wishlist: "Wishlist",
-  backlog: "Backlog",
   ownership: "Ownership",
 };

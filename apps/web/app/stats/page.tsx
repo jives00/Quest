@@ -321,8 +321,10 @@ function Lifetime({ token }: { token: string }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard label="Lifetime playtime" value={fmtHours(o.lifetimeMinutes)} hint={`${fmtHours(o.trackedMinutes)} tracked`} />
         <StatCard label="Achievements" value={o.achievementsUnlocked.toLocaleString()} hint={`${o.perfectGames} perfect games`} />
-        <StatCard label="Backlog" value={((stats.statusCounts["unplayed"] ?? 0) + (stats.statusCounts["playing"] ?? 0)).toLocaleString()} hint="unplayed + playing" />
-        <StatCard label="Completed" value={(stats.statusCounts["completed"] ?? 0).toLocaleString()} />
+        {/* Counts what's actually queued: a platform sync files new games
+            here, and moving one to Skipped takes it back out. */}
+        <StatCard label="Backlog" value={(stats.statusCounts["backlog"] ?? 0).toLocaleString()} hint="queued to play next" />
+        <StatCard label="Completed" value={(stats.statusCounts["completed"] ?? 0).toLocaleString()} hint={`${(stats.statusCounts["skipped"] ?? 0).toLocaleString()} skipped`} />
       </div>
 
       {/* ── Recent activity + charts ───────────────────────────────────── */}

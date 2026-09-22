@@ -1,13 +1,15 @@
+import type { GameStatus, SystemKey } from "@quest/types";
 import { resolveApiBase, resetApiBase } from "./apiBase";
 
 // ─── Domain types (re-exported from web lib/api.ts shapes) ────────────────────
 
 export type Platform = "steam" | "psn" | "xbox" | "epic" | "gog" | "meta_quest";
 export type ImportSource = "epic" | "gog" | "meta_quest";
-export type GameStatus = "unplayed" | "playing" | "completed" | "other";
+// GameStatus and SystemKey come from @quest/types so the five statuses are
+// declared once instead of drifting between here and apps/web/lib/api.ts.
+export type { GameStatus, SystemKey };
 export type MatchStatus = "matched" | "provisional" | "manual";
 export type ListKind = "system" | "platform" | "custom";
-export type SystemKey = "backlog" | "wishlist" | "replay" | "vr";
 export type DiscoverCategory =
   | "trending"
   | "new_releases"
@@ -69,6 +71,7 @@ export interface DashboardResponse {
 export interface DashboardSummary {
   totalGames: number;
   lifetimeMin: number;
+  /** Completed + skipped — everything you're done with, not just finished. */
   finishedCount: number;
   perfectCount: number;
   artPaths: string[];

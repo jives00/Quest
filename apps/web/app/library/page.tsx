@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { GAME_STATUSES, GAME_STATUS_LABELS } from "@quest/types";
 import { api, type LibraryGame, type GameStatus, type Platform, type UserPlatform } from "@/lib/api";
 import { CoverGrid } from "@/components/cover-grid";
 
@@ -19,10 +20,7 @@ const BUILTIN_PLATFORMS: { value: Platform; label: string }[] = [
 
 const STATUSES: { value: GameStatus | ""; label: string }[] = [
   { value: "", label: "All Statuses" },
-  { value: "unplayed", label: "Unplayed" },
-  { value: "playing", label: "Playing" },
-  { value: "completed", label: "Completed" },
-  { value: "other", label: "Other" },
+  ...GAME_STATUSES.map((v) => ({ value: v, label: GAME_STATUS_LABELS[v] })),
 ];
 
 export default function LibraryPage() {
@@ -48,6 +46,18 @@ export default function LibraryPage() {
     }
     router.replace(`?${params.toString()}`);
   }
+
+  // Same contextual moves the game page's Shelf block offers — queuing a
+  // replay shouldn't mean opening the game.
+  const handleQuickStatus = useCallback(async (gameId: number, next: GameStatus) => {
+    if (!token) return;
+    try {
+      await api.setStatus(gameId, next, token);
+      setGames((prev) => prev.map((g) => (g.id === gameId ? { ...g, status: next } : g)));
+    } catch (err) {
+      console.error("Quick status error:", err);
+    }
+  }, [token]);
 
   useEffect(() => {
     if (!isLoading && !token) router.push("/login");
@@ -181,7 +191,7 @@ export default function LibraryPage() {
             <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
           </div>
         ) : (
-          <CoverGrid games={games} emptyMessage="No games found." navLabel="Library" gridClass="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3" />
+          <CoverGrid games={games} onQuickStatus={handleQuickStatus} emptyMessage="No games found." navLabel="Library" gridClass="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3" />
         )}
       </div>
     </div>

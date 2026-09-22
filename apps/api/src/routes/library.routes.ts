@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { RowDataPacket } from 'mysql2/promise';
+import { GAME_STATUSES } from '@quest/types';
 import { authenticate } from '../middleware/auth';
 import { getPool } from '../db';
 import { ALL_PLATFORMS } from '../platforms';
@@ -13,9 +14,13 @@ export async function libraryRoutes(app: FastifyInstance) {
 
   /**
    * GET /library
-   * Optional filters: platform (steam|psn), genre (substring), status (unplayed|playing|…)
-   * Default: only games that matter (have playtime OR non-default status OR list membership).
+   * Optional filters: platform (steam|psn), genre (substring), status (backlog|playing|…)
+   * Default: only games that matter (have playtime OR any status OR list membership).
    * ?all=1: full owned/known set.
+   *
+   * Wishlist games are unowned, so they are carried by status alone and hidden
+   * unless `status=wishlist` asks for them — otherwise the library fills up
+   * with games you don't have.
    */
   app.get<{
     Querystring: {
@@ -33,7 +38,7 @@ export async function libraryRoutes(app: FastifyInstance) {
     const { platform, customPlatformId, genre, status, all, hidden, vr, q } = request.query;
 
     const VALID_PLATFORMS: string[] = ALL_PLATFORMS;
-    const VALID_STATUSES = ['unplayed', 'playing', 'completed', 'other'];
+    const VALID_STATUSES: string[] = [...GAME_STATUSES];
 
     if (platform && !VALID_PLATFORMS.includes(platform)) {
       return reply.status(400).send({ error: 'Invalid platform' });
@@ -55,7 +60,7 @@ export async function libraryRoutes(app: FastifyInstance) {
         g.sort_title AS sortTitle,
         g.cover_path AS coverPath,
         g.match_status AS matchStatus,
-        COALESCE(gs.status, 'unplayed') AS status,
+        gs.status AS status,
         g.genres,
         (
           SELECT GROUP_CONCAT(DISTINCT o2.platform)
@@ -74,10 +79,15 @@ export async function libraryRoutes(app: FastifyInstance) {
         EXISTS (SELECT 1 FROM ownership o WHERE o.user_id = ? AND o.game_id = g.id)
         OR EXISTS (SELECT 1 FROM playtime_totals pt WHERE pt.user_id = ? AND pt.game_id = g.id)
         OR EXISTS (SELECT 1 FROM custom_ownership co WHERE co.user_id = ? AND co.game_id = g.id)
+        OR gs.status = 'wishlist'
       )
     `;
 
     const params: (string | number)[] = [uid, uid, uid, uid, uid, uid];
+
+    if (status !== 'wishlist') {
+      sql += ` AND (gs.status IS NULL OR gs.status <> 'wishlist')`;
+    }
 
     if (showHidden) {
       // Show ONLY hidden games
@@ -91,14 +101,14 @@ export async function libraryRoutes(app: FastifyInstance) {
 
     if (!showAll && !showHidden) {
       // Default: games that "matter" — any playtime OR earned achievements/trophies OR
-      // non-default (not unplayed) status OR list membership. Earned achievements are the
+      // any status at all OR list membership. Earned achievements are the
       // played-signal for platforms that report no minutes (Xbox, trophy-only PSN), so
       // those games surface here instead of being stuck behind "Show all owned".
       sql += `
         AND (
           EXISTS (SELECT 1 FROM playtime_totals pt2 WHERE pt2.user_id = ? AND pt2.game_id = g.id AND pt2.total_minutes > 0)
           OR EXISTS (SELECT 1 FROM user_achievements ua2 WHERE ua2.user_id = ? AND ua2.game_id = g.id AND ua2.unlocked_at IS NOT NULL)
-          OR (gs.status IS NOT NULL AND gs.status <> 'unplayed')
+          OR gs.status IS NOT NULL
           OR EXISTS (SELECT 1 FROM list_items li JOIN lists l ON l.id = li.list_id WHERE l.user_id = ? AND li.game_id = g.id)
         )
       `;
@@ -123,12 +133,8 @@ export async function libraryRoutes(app: FastifyInstance) {
     }
 
     if (status) {
-      if (status === 'unplayed') {
-        sql += ` AND (gs.status IS NULL OR gs.status = 'unplayed')`;
-      } else {
-        sql += ` AND gs.status = ?`;
-        params.push(status);
-      }
+      sql += ` AND gs.status = ?`;
+      params.push(status);
     }
 
     if (showVr) {

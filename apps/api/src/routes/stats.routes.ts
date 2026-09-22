@@ -5,7 +5,7 @@ import {
   type ActivityEventType,
 } from '../services/stats.service';
 
-const ACTIVITY_TYPES: ActivityEventType[] = ['session', 'achievement', 'completion', 'status', 'wishlist', 'backlog', 'ownership'];
+const ACTIVITY_TYPES: ActivityEventType[] = ['session', 'achievement', 'completion', 'status', 'ownership'];
 
 function userId(request: FastifyRequest): number {
   return (request.user as { sub: number }).sub;

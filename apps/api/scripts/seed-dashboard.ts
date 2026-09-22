@@ -128,7 +128,7 @@ async function main() {
     await conn.query(
       `INSERT INTO game_status (user_id, game_id, status)
        VALUES (?, ?, 'playing')
-       ON DUPLICATE KEY UPDATE status = IF(status = 'unplayed', 'playing', status)`,
+       ON DUPLICATE KEY UPDATE status = status`,
       [uid, g.id],
     );
   }
@@ -136,7 +136,7 @@ async function main() {
     await conn.query(
       `INSERT INTO game_status (user_id, game_id, status)
        VALUES (?, ?, 'completed')
-       ON DUPLICATE KEY UPDATE status = IF(status = 'unplayed', 'completed', status)`,
+       ON DUPLICATE KEY UPDATE status = status`,
       [uid, g.id],
     );
   }

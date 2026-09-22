@@ -10,9 +10,9 @@ import { saveGameNavContext } from "@/lib/game-nav-context";
 export const dynamic = "force-dynamic";
 
 const SYSTEM_ICONS: Record<string, string> = {
-  backlog: "queue",
-  wishlist: "bookmark",
   replay: "replay",
+  endless: "all_inclusive",
+  vr: "visibility",
 };
 
 const PLATFORM_ICONS: Record<string, string> = {
@@ -23,8 +23,6 @@ const PLATFORM_ICONS: Record<string, string> = {
   gog: "folder_special",
   meta_quest: "visibility",
 };
-
-const DONE_STATUSES = new Set(["completed", "other"]);
 
 export default function ListsPage() {
   const router = useRouter();
@@ -103,17 +101,6 @@ export default function ListsPage() {
     }
   }, [token, lists, selectedId]);
 
-  const handleRemoveFromBacklog = useCallback(async (gameId: number) => {
-    if (!token || !selectedId) return;
-    await api.removeListItem(selectedId, gameId, token);
-    setDetail((prev) =>
-      prev ? { ...prev, games: prev.games.filter((g) => g.id !== gameId) } : prev
-    );
-    setLists((prev) =>
-      prev.map((l) => l.id === selectedId ? { ...l, itemCount: l.itemCount - 1 } : l)
-    );
-  }, [token, selectedId]);
-
   if (isLoading) return null;
   if (!token) return null;
 
@@ -121,7 +108,9 @@ export default function ListsPage() {
   const customLists = lists.filter((l) => l.kind === "custom");
 
   const selectedList = lists.find((l) => l.id === selectedId);
-  const isBacklog = selectedList?.systemKey === "backlog";
+  // Replay doubles as the favourites shelf you shop from when queuing something
+  // to Backlog, so it's the one list where a length estimate earns its place.
+  const isReplay = selectedList?.systemKey === "replay";
   const isReadOnly = selectedList?.kind === "platform";
 
   return (
@@ -257,33 +246,17 @@ export default function ListsPage() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
-                {detail.games.map((game) => {
-                  const looksD = isBacklog && game.status && DONE_STATUSES.has(game.status);
-                  return (
-                    <div key={game.id} className="relative">
-                      <CoverCard
-                        game={game}
-                        showHltb={isBacklog}
-                        onClick={() => saveGameNavContext(detail.games.map((g) => g.id), selectedList?.name ?? "List")}
-                      />
-                      {looksD && (
-                        <div className="absolute inset-0 flex flex-col items-center justify-end pb-2 bg-black/50">
-                          <span className="text-[9px] font-bold uppercase tracking-widest text-yellow-400 bg-black/60 px-1.5 py-0.5 rounded mb-1">
-                            looks done
-                          </span>
-                          {!isReadOnly && (
-                            <button
-                              onClick={() => handleRemoveFromBacklog(game.id)}
-                              className="text-[9px] font-bold uppercase tracking-widest text-white bg-red-500/80 hover:bg-red-600 px-2 py-0.5 rounded transition-colors"
-                            >
-                              Remove
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {/* The old "looks done" nag lived here: a Backlog-list game whose
+                    status said completed. One status field makes that state
+                    unrepresentable, so the nag has nothing left to catch. */}
+                {detail.games.map((game) => (
+                  <CoverCard
+                    key={game.id}
+                    game={game}
+                    showHltb={isReplay}
+                    onClick={() => saveGameNavContext(detail.games.map((g) => g.id), selectedList?.name ?? "List")}
+                  />
+                ))}
               </div>
             )}
           </div>

@@ -12,6 +12,7 @@ import {
 import { Image } from "expo-image";
 import { useRoute } from "@react-navigation/native";
 import type { RouteProp } from "@react-navigation/native";
+import { GAME_STATUSES, GAME_STATUS_LABELS } from "@quest/types";
 import { useAuth } from "../contexts/AuthContext";
 import { api, PLATFORM_LABELS } from "../lib/api";
 import type { GameDetail, GameStatus, Platform, Achievement } from "../lib/api";
@@ -24,12 +25,10 @@ type Route = RouteProp<SharedDetailParamList, "GameDetail">;
 /** Platforms whose pollers report real playtime minutes (Xbox reports none). */
 const PLAYTIME_TRACKED = new Set<string>(["steam", "psn", "xbox"]);
 
-const STATUS_OPTIONS: { label: string; value: GameStatus }[] = [
-  { label: "Unplayed", value: "unplayed" },
-  { label: "Playing", value: "playing" },
-  { label: "Completed", value: "completed" },
-  { label: "Other", value: "other" },
-];
+const STATUS_OPTIONS: { label: string; value: GameStatus }[] = GAME_STATUSES.map((v) => ({
+  label: GAME_STATUS_LABELS[v],
+  value: v,
+}));
 
 const CONTROLLER_LABEL: Record<string, string> = {
   full: "Full Support",
@@ -135,15 +134,9 @@ export default function GameDetailScreen() {
     if (!token || !game) return;
     setTogglingWishlist(true);
     try {
-      // Wishlist is managed via the wishlist system list; find its id
-      const lists = await api.getLists(token);
-      const wishlist = lists.find((l) => l.systemKey === "wishlist");
-      if (!wishlist) return;
-      if (game.inWishlist) {
-        await api.removeListItem(wishlist.id, gameId, token);
-      } else {
-        await api.addListItem(wishlist.id, gameId, token);
-      }
+      // Wishlist is a status now, not a list. Coming off it means you own it,
+      // which files it in Backlog — the same thing a platform sync does.
+      await api.setStatus(gameId, game.inWishlist ? "backlog" : "wishlist", token);
       await load();
     } catch {
       Alert.alert("Error", "Failed to update wishlist.");

@@ -36,7 +36,7 @@ export async function exportRoutes(app: FastifyInstance) {
     const [libRows] = await pool.query<RowDataPacket[]>(
       `SELECT
          g.title,
-         COALESCE(gs.status, 'unplayed') AS status,
+         COALESCE(gs.status, '') AS status,
          (SELECT GROUP_CONCAT(DISTINCT o.platform ORDER BY o.platform SEPARATOR ', ')
           FROM ownership o WHERE o.user_id = ? AND o.game_id = g.id) AS platforms,
          COALESCE((SELECT SUM(pt.total_minutes) FROM playtime_totals pt

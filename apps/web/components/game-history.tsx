@@ -189,7 +189,6 @@ function AddMemoryForm({ gameId, token, onAdded }: { gameId: number; token: stri
           <option value="">— status —</option>
           <option value="playing">Playing</option>
           <option value="completed">Completed</option>
-          <option value="other">Other</option>
         </select>
         <input
           value={platform}

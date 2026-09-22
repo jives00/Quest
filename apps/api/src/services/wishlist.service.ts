@@ -1,13 +1,17 @@
 // ---------------------------------------------------------------------------
 // Steam wishlist sync — Steam is the system of record.
 // ---------------------------------------------------------------------------
-// Mirrors a user's Steam wishlist into the local "Wishlist" system list:
+// Mirrors a user's Steam wishlist into the `wishlist` status:
 //   - resolves each wishlisted appid to a canonical game (reusing the same
 //     matcher the owned-library sync uses), materializing a row when needed;
-//   - adds newly-wishlisted games to the Wishlist list;
-//   - removes games that fell off the Steam wishlist — but ONLY games that have
-//     a steam_appid mapping. Manually-added, non-Steam wishlist entries are left
-//     untouched, since Steam can't speak to those.
+//   - gives newly-wishlisted games status `wishlist`;
+//   - clears the status of games that fell off the Steam wishlist — but ONLY
+//     games that have a steam_appid mapping. Manually-added, non-Steam wishlist
+//     entries are left untouched, since Steam can't speak to those.
+//
+// A game that is already owned (status backlog/playing/completed/skipped) is
+// never dragged back to `wishlist`: Steam keeps games on the wishlist after you
+// buy them, and ownership is the stronger signal.
 // ---------------------------------------------------------------------------
 
 import { RowDataPacket } from 'mysql2/promise';
@@ -15,7 +19,7 @@ import { getPool } from '../db';
 import { getWishlist } from './steam.client';
 import { fetchAppDetails } from './steam-store.client';
 import { resolveExternalId } from './matching.service';
-import { addToList, removeFromList, seedSystemLists } from './library.service';
+import { setStatus } from './status.service';
 
 const STEAM_PC_PLATFORM_ID = 6; // IGDB platform id for PC (Windows)
 const STORE_DELAY_MS = 400; // pace storefront calls when naming new appids
@@ -25,29 +29,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export interface WishlistSyncResult {
   /** Total items on the Steam wishlist. */
   total: number;
-  /** Games added to the local Wishlist list this run. */
+  /** Games given status `wishlist` this run. */
   added: number;
-  /** Games removed (fell off the Steam wishlist). */
+  /** Games whose `wishlist` status was cleared (fell off the Steam wishlist). */
   removed: number;
-}
-
-/** Resolve (and seed if missing) the user's Wishlist system list id. */
-async function getWishlistListId(userId: number): Promise<number> {
-  const pool = getPool();
-  const find = async () => {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id FROM lists WHERE user_id = ? AND kind = 'system' AND system_key = 'wishlist' LIMIT 1`,
-      [userId],
-    );
-    return rows.length ? (rows[0].id as number) : null;
-  };
-  let id = await find();
-  if (id == null) {
-    await seedSystemLists(userId);
-    id = await find();
-  }
-  if (id == null) throw new Error('Wishlist system list could not be resolved');
-  return id;
 }
 
 async function findGameIdByAppId(appId: string): Promise<number | null> {
@@ -59,7 +44,7 @@ async function findGameIdByAppId(appId: string): Promise<number | null> {
 }
 
 /**
- * Sync one Steam account's wishlist into the local Wishlist list.
+ * Sync one Steam account's wishlist into the `wishlist` status.
  * Returns counts. Throws only on a hard failure (e.g. wishlist fetch error).
  */
 export async function syncSteamWishlist(
@@ -68,7 +53,6 @@ export async function syncSteamWishlist(
 ): Promise<WishlistSyncResult> {
   const pool = getPool();
   const items = await getWishlist(steamId64);
-  const wishlistListId = await getWishlistListId(userId);
 
   // Resolve every wishlisted appid to a canonical game id.
   const targetGameIds = new Set<number>();
@@ -96,34 +80,50 @@ export async function syncSteamWishlist(
     targetGameIds.add(gameId);
   }
 
-  // Current Wishlist members, flagged by whether they're Steam-resolvable.
+  // Games currently sitting on `wishlist`, flagged by Steam-resolvability.
   const [memberRows] = await pool.query<RowDataPacket[]>(
-    `SELECT li.game_id AS gameId,
+    `SELECT gs.game_id AS gameId,
             EXISTS (SELECT 1 FROM external_game_ids e
-                     WHERE e.game_id = li.game_id AND e.source = 'steam_appid') AS hasSteam
-       FROM list_items li
-      WHERE li.list_id = ?`,
-    [wishlistListId],
+                     WHERE e.game_id = gs.game_id AND e.source = 'steam_appid') AS hasSteam
+       FROM game_status gs
+      WHERE gs.user_id = ? AND gs.status = 'wishlist'`,
+    [userId],
   );
   const currentMembers = new Map<number, boolean>(
     memberRows.map((r) => [r.gameId as number, Boolean(r.hasSteam)]),
   );
 
-  // Add games newly on the Steam wishlist.
+  // Owned games are excluded outright: Steam leaves a game on the wishlist
+  // after purchase, and dragging it back from Unplayed would undo the
+  // Wishlist → Unplayed transition on every poll.
+  const [ownedRows] = await pool.query<RowDataPacket[]>(
+    `SELECT game_id AS gameId FROM ownership WHERE user_id = ?`,
+    [userId],
+  );
+  const owned = new Set<number>(ownedRows.map((r) => r.gameId as number));
+
   let added = 0;
   for (const gameId of targetGameIds) {
-    if (!currentMembers.has(gameId)) {
-      await addToList(wishlistListId, gameId);
-      added++;
-    }
+    if (currentMembers.has(gameId) || owned.has(gameId)) continue;
+    await setStatus(userId, gameId, 'wishlist', 'ownership_sync');
+    added++;
   }
 
-  // Remove Steam-backed games that dropped off the wishlist (Steam = source of
+  // Clear Steam-backed games that dropped off the wishlist (Steam = source of
   // truth). Leave non-Steam manual entries alone.
   let removed = 0;
   for (const [gameId, hasSteam] of currentMembers) {
     if (hasSteam && !targetGameIds.has(gameId)) {
-      await removeFromList(wishlistListId, gameId);
+      // Off the Steam wishlist without being owned means you changed your
+      // mind, not that you bought it — clear the status rather than inventing
+      // one. Absence of a row is the resting state.
+      await pool.query(
+        `DELETE FROM game_status WHERE user_id = ? AND game_id = ? AND status = 'wishlist'`,
+        [userId, gameId],
+      );
+      // No status_changes row: there is no status to report having moved to,
+      // and claiming 'skipped' here would put a decision in your mouth that
+      // Steam made.
       removed++;
     }
   }

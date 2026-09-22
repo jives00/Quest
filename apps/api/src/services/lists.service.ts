@@ -65,6 +65,11 @@ export async function getUserLists(userId: number): Promise<ListRow[]> {
        END AS itemCount
      FROM lists l
      WHERE l.user_id = ?
+       -- Backlog and Wishlist are statuses now. Migration 043 deletes the list
+       -- rows, but it cannot run until the manual other-status pass is done and
+       -- the new APK has shipped, so hide them here, or every client shows the
+       -- same fact twice for the whole rollout window.
+       AND (l.system_key IS NULL OR l.system_key NOT IN ('backlog', 'wishlist'))
      ORDER BY l.sort_order, l.id`,
     [userId],
   );
@@ -97,7 +102,7 @@ export async function getListGames(userId: number, listId: number): Promise<List
   if (list.systemKey === 'vr') {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
-              COALESCE(gs.status, 'unplayed') AS status, 0 AS sortOrder,
+              gs.status AS status, 0 AS sortOrder,
               g.first_release_date AS firstReleaseDate, g.metacritic,
               g.hltb_main_extra_hours AS hltbMainExtraHours,
               g.hltb_main_hours AS hltbMainHours,
@@ -135,7 +140,7 @@ export async function getListGames(userId: number, listId: number): Promise<List
   if (list.kind === 'platform') {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
-              COALESCE(gs.status, 'unplayed') AS status, 0 AS sortOrder,
+              gs.status AS status, 0 AS sortOrder,
               g.first_release_date AS firstReleaseDate, g.metacritic,
               g.hltb_main_extra_hours AS hltbMainExtraHours,
               g.hltb_main_hours AS hltbMainHours,
@@ -173,7 +178,7 @@ export async function getListGames(userId: number, listId: number): Promise<List
   // System or custom: from list_items
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
-            COALESCE(gs.status, 'unplayed') AS status, li.sort_order AS sortOrder,
+            gs.status AS status, li.sort_order AS sortOrder,
             g.first_release_date AS firstReleaseDate, g.metacritic,
             g.hltb_main_extra_hours AS hltbMainExtraHours,
             g.hltb_main_hours AS hltbMainHours,

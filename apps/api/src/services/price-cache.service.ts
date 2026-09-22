@@ -99,13 +99,14 @@ export async function writeCachedPrice(
   );
 }
 
-/** Wishlisted games across all users, for the background refresh sweep. */
+/** Wishlisted games across all users, for the background refresh sweep.
+ *  Keyed off status, not the old Wishlist system list — that list is gone, and
+ *  keying off it would silently stop every price from refreshing. */
 export async function getWishlistedGameIds(): Promise<{ userId: number; gameId: number }[]> {
   const [rows] = await getPool().query<RowDataPacket[]>(
-    `SELECT DISTINCT l.user_id AS userId, li.game_id AS gameId
-       FROM lists l
-       JOIN list_items li ON li.list_id = l.id
-      WHERE l.system_key = 'wishlist'`,
+    `SELECT DISTINCT gs.user_id AS userId, gs.game_id AS gameId
+       FROM game_status gs
+      WHERE gs.status = 'wishlist'`,
   );
   return rows.map((r) => ({ userId: r.userId as number, gameId: r.gameId as number }));
 }

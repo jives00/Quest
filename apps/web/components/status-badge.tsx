@@ -1,17 +1,20 @@
+import { GAME_STATUSES, GAME_STATUS_LABELS } from "@quest/types";
 import type { GameStatus } from "@/lib/api";
 
-const STATUS_CONFIG: Record<GameStatus, { label: string; classes: string }> = {
-  unplayed:  { label: "Unplayed",  classes: "bg-surface-container-high text-on-surface/60 border border-outline-variant/40" },
-  playing:   { label: "Playing",   classes: "bg-accent/20 text-accent border border-accent/30" },
-  completed: { label: "Completed", classes: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30" },
-  other:     { label: "Other",     classes: "bg-purple-500/20 text-purple-400 border border-purple-500/30" },
+const STATUS_CLASSES: Record<GameStatus, string> = {
+  wishlist:  "bg-pink-500/20 text-pink-400 border border-pink-500/30",
+  backlog:   "bg-blue-500/20 text-blue-400 border border-blue-500/30",
+  playing:   "bg-accent/20 text-accent border border-accent/30",
+  completed: "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30",
+  skipped:   "bg-surface-container-high text-on-surface/50 border border-outline-variant/40",
 };
 
+export { GAME_STATUS_LABELS as STATUS_LABELS };
+
 export function StatusBadge({ status }: { status: GameStatus }) {
-  const cfg = STATUS_CONFIG[status];
   return (
-    <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${cfg.classes}`}>
-      {cfg.label}
+    <span className={`inline-block text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded ${STATUS_CLASSES[status]}`}>
+      {GAME_STATUS_LABELS[status]}
     </span>
   );
 }
@@ -23,20 +26,19 @@ export function StatusSelector({
   current: GameStatus | null;
   onChange: (status: GameStatus | null) => void;
 }) {
-  const statuses: GameStatus[] = ["unplayed", "playing", "completed", "other"];
   return (
     <div className="flex flex-wrap gap-2">
-      {statuses.map((s) => (
+      {GAME_STATUSES.map((s) => (
         <button
           key={s}
           onClick={() => onChange(current === s ? null : s)}
           className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-full transition-all ${
             current === s
-              ? STATUS_CONFIG[s].classes + " ring-2 ring-offset-1 ring-offset-background ring-current"
+              ? STATUS_CLASSES[s] + " ring-2 ring-offset-1 ring-offset-background ring-current"
               : "bg-surface-container-high text-on-surface/40 hover:text-on-surface border border-outline-variant/30"
           }`}
         >
-          {STATUS_CONFIG[s].label}
+          {GAME_STATUS_LABELS[s]}
         </button>
       ))}
     </div>

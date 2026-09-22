@@ -6,7 +6,9 @@ import { getPool } from '../db';
 // chronological per-game timeline.
 
 export type HistoryPrecision = 'exact' | 'day' | 'month' | 'year' | 'era';
-export type HistoryStatus = 'playing' | 'completed' | 'other';
+// Narrowed, not widened: Wishlist/Backlog/Unplayed aren't play events, so a
+// history entry only ever records playing or completed.
+export type HistoryStatus = 'playing' | 'completed';
 
 export interface PlayHistoryEntry {
   id: number;

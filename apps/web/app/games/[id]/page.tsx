@@ -18,7 +18,7 @@ import {
   type UserPlatform,
   type PlatformOverride,
 } from "@/lib/api";
-import { StatusSelector } from "@/components/status-badge";
+import { GameShelf } from "@/components/game-shelf";
 import { GameMetadataEditor } from "@/components/game-metadata-editor";
 import { GameRematch } from "@/components/game-rematch";
 import { GameCompletionsCard } from "@/components/game-completions-card";
@@ -501,10 +501,6 @@ export default function GameDetailPage() {
     ];
   })();
 
-  // VR list is toggled via the dedicated VR button, not the list section
-  const systemLists = lists.filter((l) => l.kind === "system" && l.systemKey !== "vr");
-  const customLists = lists.filter((l) => l.kind === "custom");
-
   const totalPlaytime = game.playtime.reduce((s, p) => s + p.totalMin, 0);
   const PLAYTIME_TRACKED = new Set(["steam", "psn", "xbox"]);
   const hasTrackedPlaytime = game.playtime.some((p) => PLAYTIME_TRACKED.has(p.source) && p.totalMin > 0);
@@ -851,11 +847,18 @@ export default function GameDetailPage() {
               nothing when there is genuinely nothing to say. */}
           {game.inWishlist && <WishlistPricePanel gameId={game.id} token={token} />}
 
-          {/* Status */}
-          <section className="glass-panel p-5">
-            <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Status</h3>
-            <StatusSelector current={game.status} onChange={handleStatusChange} />
-          </section>
+          {/* Shelf — status, the likely next move, and the Replay toggle in one
+              block, so "where does this sit" is one read and one click. */}
+          <GameShelf
+            gameId={game.id}
+            token={token}
+            status={game.status}
+            lists={lists}
+            memberOf={game.lists}
+            refreshKey={completionsRefreshKey}
+            onStatusChange={handleStatusChange}
+            onListToggle={handleListToggle}
+          />
 
           {/* Completions */}
           <GameCompletionsCard
@@ -1072,35 +1075,6 @@ export default function GameDetailPage() {
               </div>
             </section>
           )}
-
-          {/* Lists */}
-          <section className="glass-panel p-5">
-            <h3 className="text-label-sm font-bold uppercase tracking-widest text-on-surface/40 mb-3">Lists</h3>
-            <div className="flex flex-col gap-2">
-              {[...systemLists, ...customLists].map((l) => {
-                const inList = game.lists.includes(l.id);
-                return (
-                  <button
-                    key={l.id}
-                    onClick={() => handleListToggle(l.id, inList)}
-                    className={`flex items-center justify-between px-3 py-2 rounded-lg text-base font-medium transition-colors ${
-                      inList
-                        ? "bg-accent/20 text-accent border border-accent/30"
-                        : "bg-surface-container text-on-surface/50 border border-outline-variant/30 hover:text-on-surface"
-                    }`}
-                  >
-                    <span>{l.name}</span>
-                    <span className="material-symbols-outlined text-base">
-                      {inList ? "check_circle" : "add_circle"}
-                    </span>
-                  </button>
-                );
-              })}
-              {lists.length === 0 && (
-                <p className="text-xs text-on-surface/30">No lists yet.</p>
-              )}
-            </div>
-          </section>
 
           <Link
             href={`/history?gameId=${game.id}`}

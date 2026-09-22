@@ -93,14 +93,16 @@ export default function StatsScreen() {
           value={ov.achievementsUnlocked.toLocaleString()}
           hint={`${ov.perfectGames} perfect`}
         />
+        {/* Backlog is opt-in now, so this counts what's actually queued. */}
         <StatCard
           label="Backlog"
-          value={((stats.statusCounts["unplayed"] ?? 0) + (stats.statusCounts["playing"] ?? 0)).toLocaleString()}
-          hint="unplayed + playing"
+          value={(stats.statusCounts["backlog"] ?? 0).toLocaleString()}
+          hint="queued to play next"
         />
         <StatCard
           label="Completed"
           value={(stats.statusCounts["completed"] ?? 0).toLocaleString()}
+          hint={`${(stats.statusCounts["skipped"] ?? 0).toLocaleString()} skipped`}
         />
       </View>
 

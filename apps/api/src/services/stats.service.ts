@@ -186,7 +186,22 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
       [userId],
     ),
     pool.query<RowDataPacket[]>(
-      `SELECT status, COUNT(*) AS n FROM game_status WHERE user_id = ? GROUP BY status`,
+      // Endless games (live service, sports, roguelikes) have no finish line,
+      // so counting them as unfinished makes the completion picture a lie.
+      `SELECT gs.status, COUNT(*) AS n
+         FROM game_status gs
+        WHERE gs.user_id = ?
+          AND NOT EXISTS (
+                SELECT 1 FROM hidden_games h
+                 WHERE h.user_id = gs.user_id AND h.game_id = gs.game_id
+              )
+          AND NOT EXISTS (
+                SELECT 1 FROM list_items li
+                  JOIN lists l ON l.id = li.list_id
+                 WHERE l.user_id = gs.user_id AND l.system_key = 'endless'
+                   AND li.game_id = gs.game_id
+              )
+        GROUP BY gs.status`,
       [userId],
     ),
     pool.query<RowDataPacket[]>(
@@ -454,7 +469,7 @@ export async function getStats(userId: number, tzOffsetMinutes = 0): Promise<Sta
 // Activity feed
 // ---------------------------------------------------------------------------
 
-export type ActivityEventType = 'session' | 'achievement' | 'completion' | 'status' | 'wishlist' | 'backlog' | 'ownership';
+export type ActivityEventType = 'session' | 'achievement' | 'completion' | 'status' | 'ownership';
 
 export interface ActivityEvent {
   type: ActivityEventType;
@@ -467,8 +482,8 @@ export interface ActivityEvent {
 }
 
 // Shared by getRecentActivity (dashboard widget) and getActivityPage (full history).
-// Seven UNION branches, each needing its own `user_id = ?` — callers must repeat
-// userId seven times in the param array before any of their own params.
+// Five UNION branches, each needing its own `user_id = ?` — callers must repeat
+// userId five times in the param array before any of their own params.
 const ACTIVITY_UNION_SQL = `
      SELECT 'session' AS type,
             MAX(CONVERT_TZ(ps.started_at, '+00:00', 'America/Chicago')) AS at,
@@ -504,41 +519,33 @@ const ACTIVITY_UNION_SQL = `
      UNION ALL
 
      SELECT 'status',
-            CONVERT_TZ(gs.finished_at, '+00:00', 'America/Chicago'),
+            CONVERT_TZ(sc.changed_at, '+00:00', 'America/Chicago'),
             g.id, g.title, g.cover_path,
-            CONCAT('Marked as ', gs.status),
-            gs.status
-       FROM game_status gs JOIN games g ON g.id = gs.game_id
-      WHERE gs.user_id = ? AND gs.finished_at IS NOT NULL
+            CONCAT(
+              CASE sc.to_status
+                WHEN 'wishlist'  THEN 'Added to Wishlist'
+                WHEN 'skipped'   THEN 'Marked Skipped'
+                WHEN 'backlog'   THEN 'Queued to Backlog'
+                WHEN 'playing'   THEN 'Started playing'
+                WHEN 'completed' THEN 'Marked completed'
+                ELSE CONCAT('Marked as ', sc.to_status)
+              END,
+              -- Surface the two automatic transitions so it is never ambiguous
+              -- whether Quest moved the game or you did.
+              CASE sc.source
+                WHEN 'ownership_sync' THEN ' (auto — now owned)'
+                WHEN 'playtime'       THEN ' (auto — playtime detected)'
+                ELSE ''
+              END
+            ),
+            sc.to_status
+       FROM status_changes sc JOIN games g ON g.id = sc.game_id
+      WHERE sc.user_id = ?
         AND NOT EXISTS (
               SELECT 1 FROM game_completions gc
-               WHERE gc.user_id = gs.user_id AND gc.game_id = gs.game_id
-                 AND DATE(gc.completed_at) = DATE(gs.finished_at)
+               WHERE gc.user_id = sc.user_id AND gc.game_id = sc.game_id
+                 AND DATE(gc.completed_at) = DATE(sc.changed_at)
             )
-
-     UNION ALL
-
-     SELECT 'wishlist',
-            CONVERT_TZ(li.added_at, '+00:00', 'America/Chicago'),
-            g.id, g.title, g.cover_path,
-            'Added to Wishlist',
-            NULL
-       FROM list_items li
-       JOIN lists l ON l.id = li.list_id
-       JOIN games g ON g.id = li.game_id
-      WHERE l.user_id = ? AND l.system_key = 'wishlist'
-
-     UNION ALL
-
-     SELECT 'backlog',
-            CONVERT_TZ(li.added_at, '+00:00', 'America/Chicago'),
-            g.id, g.title, g.cover_path,
-            'Added to Backlog',
-            NULL
-       FROM list_items li
-       JOIN lists l ON l.id = li.list_id
-       JOIN games g ON g.id = li.game_id
-      WHERE l.user_id = ? AND l.system_key = 'backlog'
 
      UNION ALL
 
@@ -567,7 +574,7 @@ function activityRowsToEvents(rows: RowDataPacket[]): ActivityEvent[] {
 export async function getRecentActivity(userId: number, limit = 10): Promise<ActivityEvent[]> {
   const [rows] = await getPool().query<RowDataPacket[]>(
     `${ACTIVITY_UNION_SQL} ORDER BY at DESC LIMIT ?`,
-    [userId, userId, userId, userId, userId, userId, userId, limit],
+    [userId, userId, userId, userId, userId, limit],
   );
   return activityRowsToEvents(rows);
 }
@@ -597,7 +604,7 @@ export async function getActivityPage(
   }
   const whereClause = filters.length > 0 ? `WHERE ${filters.join(' AND ')}` : '';
 
-  const userParams = [userId, userId, userId, userId, userId, userId, userId];
+  const userParams = [userId, userId, userId, userId, userId];
 
   const [[{ total }]] = await getPool().query<RowDataPacket[]>(
     `SELECT COUNT(*) AS total FROM (${ACTIVITY_UNION_SQL}) t ${whereClause}`,

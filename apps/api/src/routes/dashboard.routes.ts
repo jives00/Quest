@@ -18,11 +18,23 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
     const [[stats]] = await pool.query<RowDataPacket[]>(
       `SELECT
-         (SELECT COUNT(DISTINCT game_id) FROM ownership WHERE user_id = ?) AS totalGames,
+         (SELECT COUNT(DISTINCT o.game_id) FROM ownership o
+           WHERE o.user_id = ?
+             AND NOT EXISTS (SELECT 1 FROM hidden_games h WHERE h.user_id = o.user_id AND h.game_id = o.game_id)
+         ) AS totalGames,
          (SELECT COALESCE(SUM(duration_min), 0) FROM play_sessions WHERE user_id = ?) AS lifetimeMin,
+         -- Completed AND skipped. Both are terminal — nothing is pending on
+         -- either — so counting only Completed leaves every skipped game owned
+         -- but absent from the banner and every panel below it, and the
+         -- numbers stop reconciling against totalGames. The tile stays labelled
+         -- "Games Completed" by choice; read it as "done with it".
+         --
+         -- Deliberately NOT mirrored on the stats page, which keeps Completed
+         -- and Skipped as separate counts.
          (SELECT COUNT(*) FROM game_status gs
-           WHERE gs.user_id = ? AND gs.status IN ('completed', 'other')
+           WHERE gs.user_id = ? AND gs.status IN ('completed', 'skipped')
              AND EXISTS (SELECT 1 FROM ownership o WHERE o.game_id = gs.game_id AND o.user_id = gs.user_id)
+             AND NOT EXISTS (SELECT 1 FROM hidden_games h WHERE h.user_id = gs.user_id AND h.game_id = gs.game_id)
          ) AS finishedCount,
          (SELECT COUNT(*) FROM (
            SELECT a.game_id
@@ -90,6 +102,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
          JOIN games g ON g.id = gs.game_id
          LEFT JOIN play_sessions ps ON ps.game_id = g.id AND ps.user_id = ?
         WHERE gs.user_id = ? AND gs.status = 'playing'
+          AND NOT EXISTS (SELECT 1 FROM hidden_games h WHERE h.user_id = gs.user_id AND h.game_id = g.id)
         GROUP BY g.id, g.title, g.cover_path, g.match_status, gs.status,
                  g.hltb_main_extra_hours, g.hltb_main_hours, g.hltb_completionist_hours
         ORDER BY lastPlayedAt DESC, g.sort_title ASC
@@ -118,18 +131,17 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.match_status AS matchStatus,
-              COALESCE(gs.status, 'unplayed') AS status,
+              gs.status AS status,
               g.hltb_main_extra_hours AS hltbMainExtraHours,
               g.hltb_main_hours AS hltbMainHours,
               g.hltb_completionist_hours AS hltbCompletionistHours
-         FROM lists l
-         JOIN list_items li ON li.list_id = l.id
-         JOIN games g ON g.id = li.game_id
-         LEFT JOIN game_status gs ON gs.game_id = g.id AND gs.user_id = ?
-        WHERE l.user_id = ? AND l.kind = 'system' AND l.system_key = 'backlog'
+         FROM game_status gs
+         JOIN games g ON g.id = gs.game_id
+        WHERE gs.user_id = ? AND gs.status = 'backlog'
+          AND NOT EXISTS (SELECT 1 FROM hidden_games h WHERE h.user_id = gs.user_id AND h.game_id = g.id)
         ORDER BY g.sort_title ASC
         LIMIT 12`,
-      [uid, uid],
+      [uid],
     );
 
     return rows.map(r => ({
@@ -153,10 +165,10 @@ export async function dashboardRoutes(app: FastifyInstance) {
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.title, g.cover_path AS coverPath, g.first_release_date AS releaseDate
-         FROM lists l
-         JOIN list_items li ON li.list_id = l.id
-         JOIN games g ON g.id = li.game_id
-        WHERE l.user_id = ? AND l.kind = 'system' AND l.system_key = 'wishlist'
+         FROM game_status gs
+         JOIN games g ON g.id = gs.game_id
+        WHERE gs.user_id = ? AND gs.status = 'wishlist'
+          AND NOT EXISTS (SELECT 1 FROM hidden_games h WHERE h.user_id = gs.user_id AND h.game_id = g.id)
           AND g.first_release_date >= CURDATE()
           AND g.first_release_date <= DATE_ADD(CURDATE(), INTERVAL 180 DAY)
         ORDER BY g.first_release_date ASC
@@ -185,6 +197,7 @@ export async function dashboardRoutes(app: FastifyInstance) {
          FROM ownership o
          JOIN games g ON g.id = o.game_id
         WHERE o.user_id = ? AND g.hero_path IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM hidden_games h WHERE h.user_id = o.user_id AND h.game_id = g.id)
         ORDER BY RAND(?)
         LIMIT 1`,
       [uid, seed],

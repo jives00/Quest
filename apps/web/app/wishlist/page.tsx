@@ -173,15 +173,9 @@ export default function WishlistPage() {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    api.getLists(token)
-      .then(async (lists) => {
-        const wishlist = lists.find((l) => l.systemKey === "wishlist");
-        if (!wishlist) {
-          setEntries([]);
-          return;
-        }
-        const detail = await api.getListDetail(wishlist.id, token);
-        const games = detail.games;
+    // Wishlist is a status now, not a list — one query, no list lookup.
+    api.getLibrary(token, { status: "wishlist", all: true })
+      .then(async (games) => {
         // Render games immediately with price placeholders, then fill prices in as they arrive.
         setEntries(games.map((g) => ({ game: g, price: null, priceLoading: true })));
         for (const g of games) {

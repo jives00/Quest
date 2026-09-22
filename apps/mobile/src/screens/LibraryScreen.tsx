@@ -9,11 +9,13 @@ import {
   TextInput,
   ScrollView,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { GAME_STATUSES, GAME_STATUS_LABELS } from "@quest/types";
 import { useAuth } from "../contexts/AuthContext";
 import { api, PLATFORM_LABELS } from "../lib/api";
 import type { LibraryGame, GameStatus } from "../lib/api";
@@ -28,11 +30,20 @@ const NUM_COLS = 3;
 
 const STATUS_OPTIONS: { label: string; value: GameStatus | "" }[] = [
   { label: "All", value: "" },
-  { label: "Unplayed", value: "unplayed" },
-  { label: "Playing", value: "playing" },
-  { label: "Completed", value: "completed" },
-  { label: "Other", value: "other" },
+  ...GAME_STATUSES.map((v) => ({ label: GAME_STATUS_LABELS[v], value: v })),
 ];
+
+/** The same next-move shortcuts the game page's Shelf block offers. */
+function quickMoves(status: GameStatus | null): GameStatus[] {
+  switch (status) {
+    case "wishlist":  return ["backlog"];
+    case "backlog":   return ["playing", "skipped"];
+    case "playing":   return ["completed", "backlog"];
+    case "completed": return ["backlog", "playing"];
+    case "skipped":   return ["backlog", "playing"];
+    default:          return ["backlog", "playing", "completed"];
+  }
+}
 
 const PLATFORM_OPTIONS = [
   { label: "All", value: "" },
@@ -64,6 +75,33 @@ export default function LibraryScreen() {
     const data = await api.getLibrary(token, params);
     setGames(data);
   }, [token, status, platform, search]);
+
+  // Long-press is the mobile counterpart of the web grid's hover menu: queuing
+  // a replay shouldn't mean opening the game.
+  const handleLongPress = useCallback((game: LibraryGame) => {
+    const moves = quickMoves((game.status as GameStatus | null) ?? null);
+    Alert.alert(
+      game.title,
+      "Move to…",
+      [
+        ...moves.map((next) => ({
+          text: GAME_STATUS_LABELS[next],
+          onPress: async () => {
+            if (!token) return;
+            try {
+              await api.setStatus(game.id, next, token);
+              setGames((prev) =>
+                prev.map((g) => (g.id === game.id ? { ...g, status: next } : g)),
+              );
+            } catch {
+              Alert.alert("Error", "Failed to update status.");
+            }
+          },
+        })),
+        { text: "Cancel", style: "cancel" as const },
+      ],
+    );
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -159,6 +197,7 @@ export default function LibraryScreen() {
             <TouchableOpacity
               style={s.coverCell}
               onPress={() => nav.navigate("GameDetail", { gameId: item.id })}
+              onLongPress={() => handleLongPress(item)}
             >
               {imgUrl(item.coverPath) ? (
                 <Image
@@ -193,12 +232,16 @@ export default function LibraryScreen() {
 
 function statusColor(status: GameStatus) {
   switch (status) {
+    case "wishlist":
+      return { backgroundColor: "#e5567f" };
+    case "backlog":
+      return { backgroundColor: "#3b82f6" };
     case "playing":
       return { backgroundColor: "#6c47ff" };
     case "completed":
       return { backgroundColor: "#4caf50" };
-    case "other":
-      return { backgroundColor: "#888" };
+    case "skipped":
+      return { backgroundColor: "#555" };
     default:
       return { backgroundColor: "#444" };
   }

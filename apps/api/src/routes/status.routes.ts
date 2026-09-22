@@ -1,15 +1,12 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
+import { GAME_STATUSES, LEGACY_STATUS_ALIASES, isGameStatus } from '@quest/types';
 import { authenticate } from '../middleware/auth';
 import { getPool } from '../db';
+import { setStatus } from '../services/status.service';
 
 function userId(request: FastifyRequest): number {
   return (request.user as { sub: number }).sub;
 }
-
-const VALID_STATUSES = ['unplayed', 'playing', 'completed', 'other'] as const;
-type GameStatusValue = (typeof VALID_STATUSES)[number];
-
-const FINISHED_STATUSES: GameStatusValue[] = ['completed'];
 
 export async function statusRoutes(app: FastifyInstance) {
   const auth = { preHandler: [authenticate] };
@@ -23,44 +20,26 @@ export async function statusRoutes(app: FastifyInstance) {
       if (!Number.isInteger(gameId) || gameId <= 0) {
         return reply.status(400).send({ error: 'Invalid gameId' });
       }
-      const { status } = request.body ?? {};
-      if (!status || !(VALID_STATUSES as readonly string[]).includes(status)) {
-        return reply.status(400).send({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
+      const raw = request.body?.status;
+
+      // Tolerant window: Watchtower ships the API within ~5 min of a merge but
+      // the phone only updates on an `apk-*` tag, so an older build is still
+      // sending `other` until then. Coerce instead of 400-ing it. Drop the
+      // alias (and this comment) once the new APK is installed.
+      const status = raw && !isGameStatus(raw) ? LEGACY_STATUS_ALIASES[raw] : raw;
+
+      if (!status || !isGameStatus(status)) {
+        return reply
+          .status(400)
+          .send({ error: `status must be one of: ${GAME_STATUSES.join(', ')}` });
       }
 
-      const uid = userId(request);
-      const pool = getPool();
-
-      const isFinished = FINISHED_STATUSES.includes(status as GameStatusValue);
-
-      await pool.query(
-        `INSERT INTO game_status (user_id, game_id, status, started_at, finished_at)
-         VALUES (?, ?, ?, IF(? = 'playing', NOW(), NULL), IF(? = 'completed', NOW(), NULL))
-         ON DUPLICATE KEY UPDATE
-           status = VALUES(status),
-           started_at = IF(status = 'unplayed' AND VALUES(status) = 'playing', NOW(), started_at),
-           finished_at = IF(VALUES(status) = 'completed' AND finished_at IS NULL, NOW(), finished_at)`,
-        [uid, gameId, status, status, status],
-      );
-
-      if (status === 'completed') {
-        await pool.query(
-          `INSERT INTO game_completions (user_id, game_id, completed_at, source)
-           SELECT ?, ?, NOW(), 'status_change'
-             FROM DUAL
-            WHERE NOT EXISTS (
-                  SELECT 1 FROM game_completions
-                   WHERE user_id = ? AND game_id = ? AND DATE(completed_at) = CURDATE()
-                )`,
-          [uid, gameId, uid, gameId],
-        );
-      }
-
+      await setStatus(userId(request), gameId, status, 'manual');
       return { gameId, status };
     },
   );
 
-  // DELETE /status/:gameId — reset to unplayed
+  // DELETE /status/:gameId — clear the status entirely (back to no opinion)
   app.delete<{ Params: { gameId: string } }>('/status/:gameId', auth, async (request, reply) => {
     const gameId = Number(request.params.gameId);
     if (!Number.isInteger(gameId) || gameId <= 0) {

@@ -1,5 +1,5 @@
 /**
- * Import / sync the Steam wishlist into the local "Wishlist" list for every
+ * Import / sync the Steam wishlist into the `wishlist` status for every
  * enabled Steam account. Steam is the system of record: games on the Steam
  * wishlist are added, and Steam-backed games that fell off it are removed.
  * Non-Steam (manually added) wishlist entries are left alone.

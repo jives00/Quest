@@ -281,15 +281,8 @@ export async function getGameDetail(userId: number, gameId: number): Promise<Gam
     ...platformListRows.map(r => r.id as number),
   ];
 
-  // Determine wishlist membership from system list with slug 'wishlist'
-  const [wishlistRows] = await pool.query<RowDataPacket[]>(
-    `SELECT l.id FROM lists l
-      JOIN list_items li ON li.list_id = l.id
-     WHERE l.user_id = ? AND l.slug = 'wishlist' AND li.game_id = ?
-     LIMIT 1`,
-    [userId, gameId],
-  );
-  const inWishlist = wishlistRows.length > 0;
+  // Wishlist is a status now, not a list — one fact, one place.
+  const inWishlist = status === 'wishlist';
 
   return {
     id: g.id as number,
