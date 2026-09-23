@@ -186,12 +186,12 @@ export async function screenshotsRoutes(app: FastifyInstance) {
     return result;
   });
 
-  // PATCH /screenshots — bulk { ids, status?, exportVariant? }
-  app.patch<{ Body: { ids?: unknown; status?: string; exportVariant?: string } }>(
+  // PATCH /screenshots — bulk { ids, status?, exportVariant?, reviewed? }
+  app.patch<{ Body: { ids?: unknown; status?: string; exportVariant?: string; reviewed?: boolean } }>(
     '/screenshots',
     auth,
     async (request, reply) => {
-      const { ids, status, exportVariant } = request.body ?? {};
+      const { ids, status, exportVariant, reviewed } = request.body ?? {};
       if (!Array.isArray(ids) || !ids.length || !ids.every((i) => positiveInt(i) != null)) {
         return reply.status(400).send({ error: 'ids must be a non-empty array of ids' });
       }
@@ -201,7 +201,7 @@ export async function screenshotsRoutes(app: FastifyInstance) {
       if (exportVariant !== undefined && exportVariant !== 'original' && exportVariant !== 'cleaned') {
         return reply.status(400).send({ error: "exportVariant must be 'original' or 'cleaned'" });
       }
-      const updated = await bulkUpdate(ids as number[], { status, exportVariant });
+      const updated = await bulkUpdate(ids as number[], { status, exportVariant, reviewed: reviewed === true });
       return { updated };
     },
   );

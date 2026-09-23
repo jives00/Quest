@@ -523,6 +523,7 @@ export async function listInbox(): Promise<ScreenshotInboxItem[]> {
     `SELECT s.game_id, g.title, g.cover_path,
             COUNT(*) AS total,
             SUM(s.status = 'keep') AS keep_count,
+            SUM(s.status_source = 'auto') AS unreviewed,
             SUM(s.status = 'reject' AND s.status_source = 'auto') AS auto_rejected,
             SUM(s.inpaint_status = 'done') AS cleaned,
             SUM(s.has_ui = 1 AND s.inpaint_status = 'queued') AS inpaint_pending,
@@ -539,6 +540,7 @@ export async function listInbox(): Promise<ScreenshotInboxItem[]> {
     coverPath: r.cover_path,
     total: Number(r.total),
     keep: Number(r.keep_count),
+    unreviewed: Number(r.unreviewed),
     autoRejected: Number(r.auto_rejected),
     cleaned: Number(r.cleaned),
     inpaintPending: Number(r.inpaint_pending),
@@ -546,11 +548,17 @@ export async function listInbox(): Promise<ScreenshotInboxItem[]> {
   }));
 }
 
-/** Shots still in review, and how many games they span (nav badge). */
+/**
+ * Shots nobody has decided on yet, and how many games they span (nav badge).
+ * "Reviewed" = the status came from the user (Keep, Reject or Mark reviewed),
+ * not from the auto-flags; reviewed shots merely waiting to be exported don't
+ * count.
+ */
 export async function inboxCount(): Promise<{ shots: number; games: number }> {
   const [rows] = await getPool().query<RowDataPacket[]>(
     `SELECT COUNT(*) AS shots, COUNT(DISTINCT game_id) AS games
-       FROM screenshots WHERE status <> 'exported' AND staging_path IS NOT NULL`,
+       FROM screenshots
+      WHERE status <> 'exported' AND staging_path IS NOT NULL AND status_source = 'auto'`,
   );
   return { shots: Number(rows[0].shots), games: Number(rows[0].games) };
 }
@@ -644,7 +652,7 @@ export async function getGameScreenshots(gameId: number): Promise<GameScreenshot
 
 export async function bulkUpdate(
   ids: number[],
-  change: { status?: 'keep' | 'reject'; exportVariant?: ScreenshotVariant },
+  change: { status?: 'keep' | 'reject'; exportVariant?: ScreenshotVariant; reviewed?: boolean },
 ): Promise<number> {
   if (!ids.length) return 0;
   const sets: string[] = [];
@@ -652,6 +660,10 @@ export async function bulkUpdate(
   if (change.status) {
     sets.push(`status = ?`, `status_source = 'user'`);
     params.push(change.status);
+  } else if (change.reviewed) {
+    // "Mark reviewed": accept whatever the auto-flags chose, and stop them
+    // changing it on a later rescore.
+    sets.push(`status_source = 'user'`);
   }
   if (change.exportVariant) {
     // Only shots that actually have a cleaned copy can switch to it.

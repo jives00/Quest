@@ -958,7 +958,7 @@ export const api = {
     request<GameScreenshots>(`/api/games/${gameId}/screenshots`, { token, signal }),
   updateScreenshots: (
     ids: number[],
-    change: { status?: "keep" | "reject"; exportVariant?: ScreenshotVariant },
+    change: { status?: "keep" | "reject"; exportVariant?: ScreenshotVariant; reviewed?: boolean },
     token: string,
   ) =>
     request<{ updated: number }>("/api/screenshots", {

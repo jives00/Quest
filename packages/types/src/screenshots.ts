@@ -53,6 +53,8 @@ export interface ScreenshotInboxItem {
   coverPath: string | null;
   total: number;
   keep: number;
+  /** Shots whose status is still the auto-flags' call -- nobody has reviewed them. */
+  unreviewed: number;
   autoRejected: number;
   cleaned: number;
   /** Shots with UI still waiting on the agent to paint it out. */

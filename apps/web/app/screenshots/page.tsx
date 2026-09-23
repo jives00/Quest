@@ -75,7 +75,8 @@ export default function ScreenshotInboxPage() {
                 <div className="min-w-0 flex flex-col gap-2">
                   <p className="text-lg font-bold text-on-surface truncate">{item.title}</p>
                   <p className="text-sm text-on-surface/60">
-                    {item.total} shots · {item.keep} to keep
+                    {item.unreviewed > 0 ? `${item.unreviewed} to review · ` : "Reviewed · "}
+                    {item.keep} to keep
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {item.autoRejected > 0 && (

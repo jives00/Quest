@@ -18,6 +18,45 @@ export const dynamic = "force-dynamic";
 
 const POLL_MS = 10_000;
 
+const PREFS_KEY = "questScreenshotReviewPrefs";
+type ReviewPrefs = { hideRejected: boolean; showMask: boolean };
+
+function readPref(key: keyof ReviewPrefs): boolean {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    const v = raw ? (JSON.parse(raw) as Partial<ReviewPrefs>)[key] : undefined;
+    return typeof v === "boolean" ? v : false;
+  } catch {
+    return false;
+  }
+}
+
+function writePref(key: keyof ReviewPrefs, value: boolean): void {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    const prefs = raw ? (JSON.parse(raw) as Partial<ReviewPrefs>) : {};
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...prefs, [key]: value }));
+  } catch {}
+}
+
+/**
+ * A view toggle remembered across reloads and games. Read after mount (the
+ * server render can't see localStorage), and written only when the user flips
+ * it -- never from an effect, so the default can't overwrite the stored value
+ * before it has been read.
+ */
+function usePersistentToggle(key: keyof ReviewPrefs): [boolean, () => void] {
+  const [value, setValue] = useState(false);
+  useEffect(() => setValue(readPref(key)), [key]);
+  const toggle = useCallback(() => {
+    setValue((v) => {
+      writePref(key, !v);
+      return !v;
+    });
+  }, [key]);
+  return [value, toggle];
+}
+
 const FLAG_LABELS: Record<ScreenshotFlag, string> = {
   duplicate: "Duplicate",
   blurry: "Blurry",
@@ -60,7 +99,7 @@ export default function ScreenshotReviewPage() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [anchor, setAnchor] = useState<number | null>(null);
-  const [hideRejected, setHideRejected] = useState(false);
+  const [hideRejected, toggleHideRejected] = usePersistentToggle("hideRejected");
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [exportName, setExportName] = useState("");
   const [confirmExport, setConfirmExport] = useState(false);
@@ -106,6 +145,7 @@ export default function ScreenshotReviewPage() {
     [pending, hideRejected],
   );
   const keepCount = pending.filter((s) => s.status === "keep").length;
+  const unreviewedCount = pending.filter((s) => s.statusSource === "auto").length;
   const cleaningCount = pending.filter((s) => s.hasUi && s.inpaintStatus === "queued").length;
   const cleaning = cleaningCount > 0;
 
@@ -168,6 +208,21 @@ export default function ScreenshotReviewPage() {
       void applyVariant(shots.map((s) => s.id), allCleaned ? "original" : "cleaned");
     },
     [data, applyVariant],
+  );
+
+  /** Accept the auto-flags' Keep/Reject as the user's decision, unchanged. */
+  const markReviewed = useCallback(
+    async (ids: number[]) => {
+      if (!token || !ids.length) return;
+      patchLocal(ids, { statusSource: "user" });
+      try {
+        await api.updateScreenshots(ids, { reviewed: true }, token);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        void load(true);
+      }
+    },
+    [token, patchLocal, load],
   );
 
   /** Put shots with UI back on the agent's queue, mask unchanged. */
@@ -279,6 +334,7 @@ export default function ScreenshotReviewPage() {
       if (key === "k") void applyStatus(ids, "keep");
       else if (key === "x") void applyStatus(ids, "reject");
       else if (key === "c") toggleVariant(ids);
+      else if (key === "r") void markReviewed(ids);
       else if (key === "arrowright" || key === "arrowleft") {
         e.preventDefault();
         const current = lightboxShot?.id ?? anchor ?? [...selected][0];
@@ -298,7 +354,7 @@ export default function ScreenshotReviewPage() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selected, visible, anchor, lightboxShot, applyStatus, toggleVariant]);
+  }, [selected, visible, anchor, lightboxShot, applyStatus, toggleVariant, markReviewed]);
 
   // ── Export ───────────────────────────────────────────────────────────────
 
@@ -370,7 +426,7 @@ export default function ScreenshotReviewPage() {
               </Link>
             </h1>
             <p className="text-[15px] text-on-surface/45 mt-1">
-              {pending.length} in review · {keepCount} to keep · {pending.length - keepCount} rejected
+              {unreviewedCount} to review · {keepCount} to keep · {pending.length - keepCount} rejected
               {cleaning && " · removing UI…"}
             </p>
           </div>
@@ -385,6 +441,14 @@ export default function ScreenshotReviewPage() {
             </button>
             <button className={BTN_NEUTRAL} disabled={!selected.size} onClick={() => applyStatus(selIds, "reject")}>
               Reject <kbd className="opacity-50 ml-1">X</kbd>
+            </button>
+            <button
+              className={BTN_NEUTRAL}
+              disabled={!pending.some((s) => selected.has(s.id) && s.statusSource === "auto")}
+              onClick={() => markReviewed(selIds)}
+              title="Accept the automatic Keep/Reject for the selected shots"
+            >
+              Mark reviewed <kbd className="opacity-50 ml-1">R</kbd>
             </button>
             <button className={BTN_NEUTRAL} disabled={!selected.size} onClick={() => applyVariant(selIds, "cleaned")}>
               Use cleaned
@@ -403,6 +467,9 @@ export default function ScreenshotReviewPage() {
             <div className="w-px h-6 bg-outline-variant/60 mx-2" />
             <span className="text-xs uppercase tracking-wider text-on-surface/40 mr-1">Select</span>
             <button className={BTN_NEUTRAL} onClick={() => selectWhere(() => true)}>All</button>
+            <button className={BTN_NEUTRAL} onClick={() => selectWhere((s) => s.statusSource === "auto")}>
+              Unreviewed
+            </button>
             <button className={BTN_NEUTRAL} onClick={() => selectWhere((s) => s.flags.length > 0)}>Flagged</button>
             <button className={BTN_NEUTRAL} onClick={() => selectWhere((s) => s.flags.includes("duplicate"))}>
               Duplicates
@@ -411,7 +478,7 @@ export default function ScreenshotReviewPage() {
             <div className="w-px h-6 bg-outline-variant/60 mx-2" />
             <button
               className={hideRejected ? BTN_ACCENT : BTN_NEUTRAL}
-              onClick={() => setHideRejected((v) => !v)}
+              onClick={toggleHideRejected}
             >
               Hide rejected
             </button>
@@ -513,11 +580,13 @@ export default function ScreenshotReviewPage() {
                   </div>
                   <div className="absolute bottom-1.5 right-1.5">
                     <span
+                      title={s.statusSource === "auto" ? "Automatic -- not reviewed yet" : "Reviewed"}
                       className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
                         rejected ? "bg-red-500/80 text-white" : "bg-black/60 text-on-surface/80"
-                      }`}
+                      } ${s.statusSource === "auto" ? "border border-dashed border-white/50" : ""}`}
                     >
                       {rejected ? "Reject" : "Keep"}
+                      {s.statusSource === "auto" ? " · auto" : " ✓"}
                     </span>
                   </div>
                 </div>
@@ -527,7 +596,7 @@ export default function ScreenshotReviewPage() {
         )}
         <p className="text-xs text-on-surface/35 mt-6">
           Click to select · Ctrl-click to toggle · Shift-click for a range · drag on empty space to box-select ·
-          Ctrl-A all · Esc clear · double-click or Enter to open · ← → move · K keep · X reject · C original/cleaned
+          Ctrl-A all · Esc clear · double-click or Enter to open · ← → move · K keep · X reject · R mark reviewed · C original/cleaned
         </p>
       </div>
 
@@ -624,7 +693,7 @@ function Lightbox({
   onError: (msg: string) => void;
 }) {
   const [split, setSplit] = useState(50);
-  const [showBoxes, setShowBoxes] = useState(false);
+  const [showBoxes, toggleShowBoxes] = usePersistentToggle("showMask");
   const [drawing, setDrawing] = useState(false);
   const [manual, setManual] = useState<UiBox[]>(shot.manualBoxes);
   const [draft, setDraft] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -713,7 +782,7 @@ function Lightbox({
           </>
         )}
         <div className="w-px h-6 bg-outline-variant/60 mx-2" />
-        <button className={showBoxes ? BTN_ACCENT : BTN_NEUTRAL} onClick={() => setShowBoxes((v) => !v)}>
+        <button className={showBoxes ? BTN_ACCENT : BTN_NEUTRAL} onClick={toggleShowBoxes}>
           Show UI mask
         </button>
         <button className={drawing ? BTN_ACCENT : BTN_NEUTRAL} onClick={() => setDrawing((v) => !v)}>
