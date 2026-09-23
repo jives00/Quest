@@ -170,6 +170,26 @@ export default function ScreenshotReviewPage() {
     [data, applyVariant],
   );
 
+  /** Put shots with UI back on the agent's queue, mask unchanged. */
+  const retryRemoval = useCallback(
+    async (ids: number[]) => {
+      if (!token || !data) return;
+      const eligible = ids.filter((id) => {
+        const s = data.screenshots.find((x) => x.id === id);
+        return s?.hasUi && s.staged && s.inpaintStatus !== "queued";
+      });
+      if (!eligible.length) return;
+      patchLocal(eligible, { inpaintStatus: "queued", inpaintError: null });
+      try {
+        await api.requeueScreenshotInpaint(eligible, token);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+        void load(true);
+      }
+    },
+    [token, data, patchLocal, load],
+  );
+
   // ── Selection ────────────────────────────────────────────────────────────
 
   const handleTileClick = (e: React.MouseEvent, s: Screenshot, index: number) => {
@@ -372,6 +392,14 @@ export default function ScreenshotReviewPage() {
             <button className={BTN_NEUTRAL} disabled={!selected.size} onClick={() => applyVariant(selIds, "original")}>
               Use original
             </button>
+            <button
+              className={BTN_NEUTRAL}
+              disabled={!pending.some((s) => selected.has(s.id) && s.hasUi && s.inpaintStatus !== "queued")}
+              onClick={() => retryRemoval(selIds)}
+              title="Send the selected shots back to the gaming PC to remove their UI again"
+            >
+              Retry UI removal
+            </button>
             <div className="w-px h-6 bg-outline-variant/60 mx-2" />
             <span className="text-xs uppercase tracking-wider text-on-surface/40 mr-1">Select</span>
             <button className={BTN_NEUTRAL} onClick={() => selectWhere(() => true)}>All</button>
@@ -475,7 +503,10 @@ export default function ScreenshotReviewPage() {
                       </span>
                     )}
                     {s.hasUi && s.inpaintStatus === "failed" && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/70 text-amber-300">
+                      <span
+                        title={s.inpaintError ?? undefined}
+                        className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-black/70 text-amber-300"
+                      >
                         Fill failed
                       </span>
                     )}
@@ -561,6 +592,7 @@ export default function ScreenshotReviewPage() {
           onReject={() => applyStatus([lightboxShot.id], "reject")}
           onVariant={(v) => applyVariant([lightboxShot.id], v)}
           onBoxesSaved={() => load(true)}
+          onRetry={() => retryRemoval([lightboxShot.id])}
           onError={setError}
         />
       )}
@@ -577,6 +609,7 @@ function Lightbox({
   onKeep,
   onReject,
   onVariant,
+  onRetry,
   onBoxesSaved,
   onError,
 }: {
@@ -586,6 +619,7 @@ function Lightbox({
   onKeep: () => void;
   onReject: () => void;
   onVariant: (v: ScreenshotVariant) => void;
+  onRetry: () => void;
   onBoxesSaved: () => void;
   onError: (msg: string) => void;
 }) {
@@ -688,10 +722,35 @@ function Lightbox({
         {manual.length > 0 && (
           <button className={BTN_NEUTRAL} onClick={() => setManual([])}>Clear drawn boxes</button>
         )}
+        {/* Unsaved drawn boxes: the one action is to save them, which changes the
+            mask and so re-queues removal on its own. A separate "retry" here would
+            re-paint the old mask and silently ignore the new boxes. */}
         {dirty && (
           <button className={BTN_ACCENT} disabled={saving} onClick={saveBoxes}>
-            {saving ? "Saving…" : "Save & re-clean"}
+            {saving ? "Saving…" : "Remove UI incl. drawn boxes"}
           </button>
+        )}
+        {shot.hasUi && !dirty && (
+          <>
+            <div className="w-px h-6 bg-outline-variant/60 mx-2" />
+            <span
+              className={`max-w-[480px] truncate ${shot.inpaintStatus === "failed" ? "text-amber-300" : "text-on-surface/50"}`}
+              title={shot.inpaintError ?? undefined}
+            >
+              {shot.inpaintStatus === "queued"
+                ? "Removing UI… (waiting on the gaming PC)"
+                : shot.inpaintStatus === "failed"
+                  ? `UI removal failed${shot.inpaintError ? `: ${shot.inpaintError}` : ""}`
+                  : shot.hasCleaned
+                    ? "UI removed"
+                    : "UI not removed yet"}
+            </span>
+            {shot.inpaintStatus !== "queued" && (
+              <button className={BTN_NEUTRAL} onClick={onRetry}>
+                {shot.hasCleaned ? "Re-clean" : "Remove UI"}
+              </button>
+            )}
+          </>
         )}
         <a className={BTN_NEUTRAL} href={screenshotImageUrl(shot.id, "mask.png", shot.maskVersion)} download>
           Download mask

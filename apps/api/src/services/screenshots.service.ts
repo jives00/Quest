@@ -210,6 +210,24 @@ export function rescoreGame(gameId: number): Promise<void> {
   return next;
 }
 
+/** Log where screenshots live, and say so loudly when the folder is missing --
+ *  a local dev API without SCREENSHOT_STAGING_DIR pointed at the NAS otherwise
+ *  just serves broken images for every shot the shared DB knows about. */
+export async function logScreenshotConfig(): Promise<void> {
+  const staging = stagingRoot();
+  const wallpapers = wallpaperDir();
+  let stagingOk = true;
+  try {
+    await fs.access(staging);
+  } catch {
+    stagingOk = false;
+  }
+  console.log(`📸 screenshots: staging ${staging}${stagingOk ? '' : ' (MISSING)'}, wallpapers ${wallpapers ?? '(WALLPAPER_DIR not set)'}`);
+  if (!stagingOk) {
+    console.warn('📸 screenshot staging folder not found -- set SCREENSHOT_STAGING_DIR (see .env.example)');
+  }
+}
+
 /** Rescore timers are in memory, so an API restart mid-burst would leave those
  *  shots unscored. Sweep every game still in review once at boot. */
 export async function rescorePendingGames(): Promise<void> {
@@ -393,7 +411,7 @@ export async function applyMaskChange(
   await pool.query(
     `UPDATE screenshots
         SET hud_blocks = ?, ui_boxes = ?, manual_boxes = ?, has_ui = ?, mask_version = ?
-            ${inpaint ? ', inpaint_status = ?' : ''}
+            ${inpaint ? ', inpaint_status = ?, inpaint_error = NULL' : ''}
             ${!hasUi ? ", export_variant = 'original'" : ''}
       WHERE id = ?`,
     [
@@ -464,7 +482,8 @@ export async function saveCleaned(id: number, buf: Buffer, maskVersion: number):
   await sharp(buf).resize({ width: 480 }).webp({ quality: 80 }).toFile(abs(relFor(r.game_id, r.sha256, '.clean.thumb.webp')));
   await pool.query(
     `UPDATE screenshots
-        SET cleaned_path = ?, inpaint_status = 'done', inpaint_mask_version = ?, export_variant = 'cleaned'
+        SET cleaned_path = ?, inpaint_status = 'done', inpaint_mask_version = ?, inpaint_error = NULL,
+            export_variant = 'cleaned'
       WHERE id = ? AND mask_version = ?`,
     [clean, maskVersion, id, maskVersion],
   );
@@ -474,10 +493,25 @@ export async function saveCleaned(id: number, buf: Buffer, maskVersion: number):
 export async function markInpaintFailed(id: number, maskVersion: number, reason: string): Promise<void> {
   console.warn(`screenshots: inpaint failed for ${id} (mask v${maskVersion}): ${reason}`);
   await getPool().query(
-    `UPDATE screenshots SET inpaint_status = 'failed', inpaint_mask_version = ?
+    `UPDATE screenshots SET inpaint_status = 'failed', inpaint_mask_version = ?, inpaint_error = ?
       WHERE id = ? AND mask_version = ?`,
-    [maskVersion, id, maskVersion],
+    [maskVersion, reason.slice(0, 500), id, maskVersion],
   );
+}
+
+/**
+ * Put shots back on the agent's inpaint queue with their current mask -- the
+ * "Retry" for a failed fill, or a re-paint of one that came out badly. A mask
+ * edit re-queues on its own; this is for when the mask is already right.
+ */
+export async function requeueInpaint(ids: number[]): Promise<number> {
+  if (!ids.length) return 0;
+  const [res] = await getPool().query<ResultSetHeader>(
+    `UPDATE screenshots SET inpaint_status = 'queued', inpaint_error = NULL
+      WHERE id IN (?) AND has_ui = 1 AND status <> 'exported' AND staging_path IS NOT NULL`,
+    [ids],
+  );
+  return res.affectedRows;
 }
 
 // ---------------------------------------------------------------------------
@@ -512,11 +546,13 @@ export async function listInbox(): Promise<ScreenshotInboxItem[]> {
   }));
 }
 
-export async function inboxCount(): Promise<number> {
+/** Shots still in review, and how many games they span (nav badge). */
+export async function inboxCount(): Promise<{ shots: number; games: number }> {
   const [rows] = await getPool().query<RowDataPacket[]>(
-    `SELECT COUNT(DISTINCT game_id) AS n FROM screenshots WHERE status <> 'exported' AND staging_path IS NOT NULL`,
+    `SELECT COUNT(*) AS shots, COUNT(DISTINCT game_id) AS games
+       FROM screenshots WHERE status <> 'exported' AND staging_path IS NOT NULL`,
   );
-  return Number(rows[0].n);
+  return { shots: Number(rows[0].shots), games: Number(rows[0].games) };
 }
 
 /** Windows-safe filename stem: "Title: Sub" → "Title - Sub", reserved chars dropped. */
@@ -565,7 +601,7 @@ export async function getGameScreenshots(gameId: number): Promise<GameScreenshot
   const [rows] = await getPool().query<RowDataPacket[]>(
     `SELECT id, game_id, taken_at, width, height, status, status_source, sharpness, luma_mean,
             luma_std, duplicate_of, hud_blocks, ui_boxes, manual_boxes, has_ui, mask_version,
-            inpaint_status, cleaned_path, export_variant, staging_path, exported_name
+            inpaint_status, inpaint_error, cleaned_path, export_variant, staging_path, exported_name
        FROM screenshots WHERE game_id = ? ORDER BY taken_at, id`,
     [gameId],
   );
@@ -586,6 +622,7 @@ export async function getGameScreenshots(gameId: number): Promise<GameScreenshot
     uiBoxes: parseBoxes(r.ui_boxes),
     manualBoxes: parseBoxes(r.manual_boxes),
     inpaintStatus: r.inpaint_status,
+    inpaintError: r.inpaint_error ?? null,
     hasCleaned: r.cleaned_path != null,
     exportVariant: r.export_variant,
     staged: r.staging_path != null,

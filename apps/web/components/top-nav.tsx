@@ -40,13 +40,13 @@ export function TopNav() {
   // Games with screenshots waiting for review. Refreshed on navigation so the
   // badge clears after an export without a reload.
   const pathname = usePathname();
-  const [screenshotInbox, setScreenshotInbox] = useState(0);
+  const [screenshotInbox, setScreenshotInbox] = useState({ shots: 0, games: 0 });
   useEffect(() => {
     if (!token) return;
     api
       .getScreenshotInboxCount(token)
-      .then((r) => setScreenshotInbox(r.games))
-      .catch(() => setScreenshotInbox(0));
+      .then(setScreenshotInbox)
+      .catch(() => setScreenshotInbox({ shots: 0, games: 0 }));
   }, [token, pathname]);
 
   useEffect(() => {
@@ -213,9 +213,11 @@ export function TopNav() {
               className="relative text-on-surface font-medium transition-colors hover:text-accent"
             >
               {link.label}
-              {link.href === "/screenshots" && screenshotInbox > 0 && (
-                <span className="absolute -top-2 -right-4 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-on-primary text-[11px] font-bold flex items-center justify-center">
-                  {screenshotInbox}
+              {link.href === "/screenshots" && screenshotInbox.shots > 0 && (
+                <span
+                  title={`${screenshotInbox.shots} ${screenshotInbox.shots === 1 ? "screenshot" : "screenshots"} waiting for review across ${screenshotInbox.games} ${screenshotInbox.games === 1 ? "game" : "games"}`}
+                  className="absolute -top-2 -right-4 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-on-primary text-[11px] font-bold flex items-center justify-center">
+                  {screenshotInbox.shots}
                 </span>
               )}
             </Link>

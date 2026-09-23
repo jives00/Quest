@@ -104,9 +104,24 @@ if ($WithVision) {
     if ($LASTEXITCODE -ne 0) { throw 'venv creation failed' }
   }
 
+  # Run the vision code from a local copy, not from the synced repo folder:
+  # Synology Drive can leave on-demand placeholders there that PowerShell opens
+  # fine but Python cannot, and a sync mid-run could swap vision.py under the
+  # task. Re-run the installer to pick up changes to vision\.
+  $visionSrc = Join-Path $PSScriptRoot 'vision'
+  $visionDst = Join-Path $stateDir 'vision'
+  if (-not (Test-Path $visionDst)) { New-Item -ItemType Directory -Path $visionDst -Force | Out-Null }
+  foreach ($name in @('vision.py', 'requirements.txt')) {
+    $src = Join-Path $visionSrc $name
+    if (-not (Test-Path $src)) { throw "Missing $src -- has the repo folder finished syncing?" }
+    # Read + write rather than Copy-Item, so a placeholder is fully downloaded.
+    [IO.File]::WriteAllBytes((Join-Path $visionDst $name), [IO.File]::ReadAllBytes($src))
+  }
+  Write-Output "Copied vision code to $visionDst"
+
   Write-Output 'Installing vision packages (a few minutes the first time) ...'
   & $venvPython -m pip install --quiet --upgrade pip
-  & $venvPython -m pip install --quiet --upgrade -r (Join-Path $PSScriptRoot 'vision\requirements.txt')
+  & $venvPython -m pip install --quiet --upgrade -r (Join-Path $visionDst 'requirements.txt')
   if ($LASTEXITCODE -ne 0) { throw 'pip install failed' }
   # --no-deps: its CPU onnxruntime dependency would replace onnxruntime-directml.
   & $venvPython -m pip install --quiet --upgrade --no-deps rapidocr_onnxruntime
@@ -128,8 +143,11 @@ if ($WithVision) {
 }
 
 # --- task -----------------------------------------------------------------
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-  -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`""
+# Launched through `conhost --headless` so no window ever appears. On Windows 11
+# Windows Terminal is the default console host and ignores -WindowStyle Hidden,
+# leaving a terminal window open for as long as the task runs.
+$action = New-ScheduledTaskAction -Execute 'conhost.exe' `
+  -Argument "--headless powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
 $settings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `

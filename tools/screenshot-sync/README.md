@@ -45,6 +45,10 @@ the LaMa model (~200 MB) once. That's about 1 GB on disk in total. Without it,
 screenshots still upload and get scored, but UI isn't removed automatically. You
 can still draw boxes and download a mask for Photoshop.
 
+The installer copies `vision\` into `%LOCALAPPDATA%\Quest\screenshot-sync\vision`,
+and the task runs it from there, not from the synced repo folder. **After changing
+`vision.py`, re-run `install-task.ps1 -WithVision`** to pick up the change.
+
 Remove the task with `.\install-task.ps1 -Uninstall`.
 
 ## Older screenshots

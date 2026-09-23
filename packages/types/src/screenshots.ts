@@ -36,6 +36,8 @@ export interface Screenshot {
   uiBoxes: UiBox[];
   manualBoxes: UiBox[];
   inpaintStatus: InpaintStatus;
+  /** Why the agent could not remove the UI (set while inpaintStatus is 'failed'). */
+  inpaintError: string | null;
   hasCleaned: boolean;
   exportVariant: ScreenshotVariant;
   /** True while the full-res original is still in staging (not yet exported/purged). */

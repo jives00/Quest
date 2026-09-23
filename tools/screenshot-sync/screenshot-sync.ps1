@@ -50,7 +50,9 @@ $LogFile      = Join-Path $StateDir 'sync.log'
 $ConfigFile   = Join-Path $StateDir 'config.json'
 $WorkDir      = Join-Path $StateDir 'work'
 $VenvPython   = Join-Path $StateDir 'venv\Scripts\python.exe'
-$VisionScript = Join-Path $PSScriptRoot 'vision\vision.py'
+# The installer copies vision\ locally (see install-task.ps1); fall back to the repo copy.
+$VisionScript = Join-Path $StateDir 'vision\vision.py'
+if (-not (Test-Path $VisionScript)) { $VisionScript = Join-Path $PSScriptRoot 'vision\vision.py' }
 # The shortcut watcher's config already holds the API base + key; reuse it.
 $WatcherConfig = Join-Path $env:LOCALAPPDATA 'Quest\shortcut-watcher\config.json'
 
@@ -380,9 +382,19 @@ function Invoke-Inpaint {
   }
   if ($jobs.Count -eq 0) { return }
 
-  $result = Invoke-Vision -Command 'inpaint' -Jobs $jobs
+  # If the helper dies outright (bad venv, missing model, GPU driver crash),
+  # report that on every shot in the batch -- otherwise they sit at "Removing
+  # UI..." in Quest forever with the only explanation buried in this log.
+  $batchError = $null
+  try {
+    $result = Invoke-Vision -Command 'inpaint' -Jobs $jobs
+  } catch {
+    $batchError = $_.Exception.Message
+    $result = $null
+    Write-Log "inpaint batch failed: $batchError" 'WARN'
+  }
   foreach ($job in $jobs) {
-    $r = $result."$($job.id)"
+    $r = if ($batchError) { [pscustomobject]@{ ok = $false; error = $batchError } } else { $result."$($job.id)" }
     try {
       if ($r -and $r.ok) {
         $res = Send-File -Path "/api/ingest/screenshot/$($job.id)/cleaned?maskVersion=$($job.maskVersion)" -File $job.out

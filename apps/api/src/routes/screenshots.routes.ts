@@ -18,6 +18,7 @@ import {
   inpaintQueue,
   listInbox,
   markInpaintFailed,
+  requeueInpaint,
   maskPng,
   saveCleaned,
   setExportName,
@@ -176,7 +177,7 @@ export async function screenshotsRoutes(app: FastifyInstance) {
 
   app.get('/screenshots/inbox', auth, async () => ({ items: await listInbox() }));
 
-  app.get('/screenshots/inbox/count', auth, async () => ({ games: await inboxCount() }));
+  app.get('/screenshots/inbox/count', auth, async () => inboxCount());
 
   app.get<{ Params: { id: string } }>('/games/:id/screenshots', auth, async (request, reply) => {
     const gameId = positiveInt(request.params.id);
@@ -204,6 +205,15 @@ export async function screenshotsRoutes(app: FastifyInstance) {
       return { updated };
     },
   );
+
+  // POST /screenshots/requeue — { ids } back onto the inpaint queue, mask unchanged.
+  app.post<{ Body: { ids?: unknown } }>('/screenshots/requeue', auth, async (request, reply) => {
+    const ids = request.body?.ids;
+    if (!Array.isArray(ids) || !ids.length || !ids.every((i) => positiveInt(i) != null)) {
+      return reply.status(400).send({ error: 'ids must be a non-empty array of ids' });
+    }
+    return { requeued: await requeueInpaint(ids as number[]) };
+  });
 
   // PUT /screenshots/:id/manual-boxes — { boxes } drawn in the lightbox; re-queues the fill.
   app.put<{ Params: { id: string }; Body: { boxes?: unknown } }>(
@@ -265,10 +275,14 @@ export async function screenshotsRoutes(app: FastifyInstance) {
       } catch {
         return reply.status(404).send({ error: 'File missing' });
       }
-      // URLs carry ?v=<maskVersion>, so a re-painted clean gets a new URL.
+      // Originals and their thumbnails never change. A cleaned copy is overwritten
+      // in place on every re-clean -- including a retry with an unchanged mask,
+      // where the ?v=<maskVersion> cache-buster stays the same -- so it must be
+      // revalidated, or the browser keeps showing the previous attempt.
+      const cleaned = kind === 'clean' || kind === 'clean-thumb';
       return reply
         .type(IMAGE_TYPES[kind])
-        .header('Cache-Control', 'private, max-age=86400')
+        .header('Cache-Control', cleaned ? 'no-cache' : 'private, max-age=86400')
         .send(createReadStream(file));
     });
   }

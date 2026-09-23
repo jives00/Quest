@@ -152,6 +152,7 @@ class Lama:
         if not os.path.exists(LAMA_PATH):
             raise FileNotFoundError(f"LaMa model missing: {LAMA_PATH} (run install-task.ps1 -WithVision)")
         self.session = ort.InferenceSession(LAMA_PATH, providers=providers())
+        self.on_cpu = self.session.get_providers() == ["CPUExecutionProvider"]
         names = [i.name for i in self.session.get_inputs()]
         self.image_name = "image" if "image" in names else names[0]
         self.mask_name = "mask" if "mask" in names else names[1]
@@ -165,7 +166,21 @@ class Lama:
             self.image_name: rgb.transpose(2, 0, 1)[None],
             self.mask_name: (msk > 127).astype(np.float32)[None, None],
         }
-        res = self.session.run(None, feed)[0][0].transpose(1, 2, 0)
+        try:
+            out = self.session.run(None, feed)
+        except Exception as err:
+            if self.on_cpu:
+                raise
+            # LaMa's Fourier convolutions (DFT ops) fail on some GPU drivers under
+            # DirectML. Slower on the CPU, but it finishes -- and stays there for
+            # the rest of the batch.
+            import onnxruntime as ort
+
+            print(f"GPU inference failed ({err}); falling back to CPU", file=sys.stderr)
+            self.session = ort.InferenceSession(LAMA_PATH, providers=["CPUExecutionProvider"])
+            self.on_cpu = True
+            out = self.session.run(None, feed)
+        res = out[0][0].transpose(1, 2, 0)
         # Exports differ on output scale; normalise either to 0-255.
         if res.max() <= 2.0:
             res = res * 255.0

@@ -13,6 +13,10 @@
   .\install-task.ps1 -ApiBase http://100.115.171.80:3007 -ApiKey <SCROBBLE_API_KEY>
 
 .EXAMPLE
+  # Re-install with the saved config (e.g. after the task definition changes)
+  .\install-task.ps1
+
+.EXAMPLE
   # Remove it again
   .\install-task.ps1 -Uninstall
 #>
@@ -41,9 +45,6 @@ if ($Uninstall) {
   return
 }
 
-if (-not $ApiBase) { throw 'ApiBase is required, e.g. -ApiBase http://100.115.171.80:3007' }
-if (-not $ApiKey)  { throw 'ApiKey is required -- use the SCROBBLE_API_KEY value from the API .env' }
-
 $scriptPath = Join-Path $PSScriptRoot 'shortcut-watcher.ps1'
 if (-not (Test-Path $scriptPath)) { throw "shortcut-watcher.ps1 not found next to this installer ($scriptPath)" }
 
@@ -52,6 +53,15 @@ $stateDir = Join-Path $env:LOCALAPPDATA 'Quest\shortcut-watcher'
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir -Force | Out-Null }
 
 $configFile = Join-Path $stateDir 'config.json'
+
+# Re-installing (e.g. to pick up a new task definition) can omit the API details:
+# the existing config.json is kept as-is.
+if (-not $ApiBase -and -not $ApiKey -and (Test-Path $configFile)) {
+  Write-Output "Keeping the existing config ($configFile)."
+} else {
+if (-not $ApiBase) { throw 'ApiBase is required, e.g. -ApiBase http://100.115.171.80:3007' }
+if (-not $ApiKey)  { throw 'ApiKey is required -- use the SCROBBLE_API_KEY value from the API .env' }
+
 [pscustomobject]@{
   apiBase     = $ApiBase
   apiKey      = $ApiKey
@@ -71,11 +81,15 @@ try {
   Write-Warning "Could not restrict permissions on config.json: $($_.Exception.Message)"
 }
 Write-Output "Wrote config to $configFile"
+}
 
 # --- task -----------------------------------------------------------------
 # -File (not -Command) so the path is passed intact; no credentials in the args.
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-  -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$scriptPath`""
+# Launched through `conhost --headless` so no window ever appears. On Windows 11
+# Windows Terminal is the default console host and ignores -WindowStyle Hidden,
+# leaving a terminal window open for as long as the task runs.
+$action = New-ScheduledTaskAction -Execute 'conhost.exe' `
+  -Argument "--headless powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$scriptPath`""
 
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
 

@@ -953,7 +953,7 @@ export const api = {
   getScreenshotInbox: (token: string, signal?: AbortSignal) =>
     request<{ items: ScreenshotInboxItem[] }>("/api/screenshots/inbox", { token, signal }),
   getScreenshotInboxCount: (token: string, signal?: AbortSignal) =>
-    request<{ games: number }>("/api/screenshots/inbox/count", { token, signal }),
+    request<{ shots: number; games: number }>("/api/screenshots/inbox/count", { token, signal }),
   getGameScreenshots: (gameId: number, token: string, signal?: AbortSignal) =>
     request<GameScreenshots>(`/api/games/${gameId}/screenshots`, { token, signal }),
   updateScreenshots: (
@@ -964,6 +964,12 @@ export const api = {
     request<{ updated: number }>("/api/screenshots", {
       method: "PATCH",
       body: JSON.stringify({ ids, ...change }),
+      token,
+    }),
+  requeueScreenshotInpaint: (ids: number[], token: string) =>
+    request<{ requeued: number }>("/api/screenshots/requeue", {
+      method: "POST",
+      body: JSON.stringify({ ids }),
       token,
     }),
   setScreenshotManualBoxes: (id: number, boxes: UiBox[], token: string) =>
