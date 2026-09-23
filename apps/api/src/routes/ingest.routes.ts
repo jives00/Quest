@@ -5,6 +5,7 @@ import {
   markShortcutPlaying,
   recordShortcutSession,
 } from '../services/steam-shortcuts.service';
+import { normalizeAppId } from '../utils/steam-appid';
 
 // ---------------------------------------------------------------------------
 // Ingest routes — reports pushed IN by an agent on a PC, rather than pulled by a
@@ -23,17 +24,6 @@ interface StopBody extends HeartbeatBody {
   startedAt?: string;
   endedAt?: string;
   clientUid?: string;
-}
-
-/** Steam shortcut appids are unsigned 32-bit. Accept the signed form too, since
- *  that is how they appear in localconfig.vdf, and normalize to unsigned. */
-function normalizeAppId(raw: string | number | undefined): string | null {
-  if (raw == null || raw === '') return null;
-  const n = Number(raw);
-  if (!Number.isInteger(n)) return null;
-  const unsigned = n < 0 ? n + 2 ** 32 : n;
-  if (unsigned <= 0 || unsigned > 0xffffffff) return null;
-  return String(unsigned);
 }
 
 function parseDate(raw: string | undefined): Date | null {

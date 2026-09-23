@@ -27,6 +27,15 @@ services:
       PSN_NPSSO: ${PSN_NPSSO}
       OPENXBL_API_KEY: ${OPENXBL_API_KEY}
       SCROBBLE_API_KEY: ${SCROBBLE_API_KEY}
+      SCREENSHOT_STAGING_DIR: /data/screenshots
+      WALLPAPER_DIR: /data/wallpapers
+    volumes:
+      # Screenshots waiting for review (originals, thumbnails, cleaned copies).
+      - /volume2/docker/quest/screenshots:/data/screenshots
+      # \\Synology\Wallpapers\Video Games -- where exported shots land. Check the
+      # volume in DSM > Control Panel > Shared Folder: if this path is wrong,
+      # Docker silently creates an empty folder here instead of failing.
+      - "/volume2/Wallpapers/Video Games:/data/wallpapers"
     restart: unless-stopped
 
   web:

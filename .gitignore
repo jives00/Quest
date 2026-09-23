@@ -17,3 +17,9 @@ dist/
 # Logs / OS
 *.log
 .DS_Store
+
+# Screenshot staging when the API runs locally (SCREENSHOT_STAGING_DIR default)
+apps/api/data/
+
+# Python
+__pycache__/

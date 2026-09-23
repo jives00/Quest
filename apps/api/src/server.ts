@@ -10,6 +10,7 @@ import { startPsnPoller } from './services/psn-poll.service';
 import { startXboxPoller } from './services/xbox-poll.service';
 import { runBackfillSweep } from './services/matching.service';
 import { startPriceRefresh } from './services/price-refresh.service';
+import { rescorePendingGames } from './services/screenshots.service';
 
 const BACKFILL_SWEEP_INTERVAL_MS = 24 * 60 * 60 * 1000; // daily
 
@@ -35,6 +36,7 @@ async function main() {
   startXboxPoller();
   startBackfillSweep();
   startPriceRefresh();
+  void rescorePendingGames().catch(err => console.error('Screenshot rescore sweep error:', err));
 }
 
 main().catch(err => {

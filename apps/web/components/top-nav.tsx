@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { api, type IgdbSearchResult } from "@/lib/api";
 
@@ -14,6 +14,7 @@ const topNavLinks = [
   { href: "/wishlist", label: "Wishlist" },
   { href: "/lists", label: "Lists" },
   { href: "/stats", label: "Stats" },
+  { href: "/screenshots", label: "Screenshots" },
 ];
 
 const avatarDropdownLinks = [
@@ -35,6 +36,18 @@ export function TopNav() {
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Games with screenshots waiting for review. Refreshed on navigation so the
+  // badge clears after an export without a reload.
+  const pathname = usePathname();
+  const [screenshotInbox, setScreenshotInbox] = useState(0);
+  useEffect(() => {
+    if (!token) return;
+    api
+      .getScreenshotInboxCount(token)
+      .then((r) => setScreenshotInbox(r.games))
+      .catch(() => setScreenshotInbox(0));
+  }, [token, pathname]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -197,9 +210,14 @@ export function TopNav() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-on-surface font-medium transition-colors hover:text-accent"
+              className="relative text-on-surface font-medium transition-colors hover:text-accent"
             >
               {link.label}
+              {link.href === "/screenshots" && screenshotInbox > 0 && (
+                <span className="absolute -top-2 -right-4 min-w-[18px] h-[18px] px-1 rounded-full bg-accent text-on-primary text-[11px] font-bold flex items-center justify-center">
+                  {screenshotInbox}
+                </span>
+              )}
             </Link>
           ))}
         </nav>

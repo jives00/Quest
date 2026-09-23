@@ -1,4 +1,13 @@
-import type { GameStatus, LoginResponse, SystemKey } from "@quest/types";
+import type {
+  GameScreenshots,
+  GameStatus,
+  LoginResponse,
+  ScreenshotExportResult,
+  ScreenshotInboxItem,
+  ScreenshotVariant,
+  SystemKey,
+  UiBox,
+} from "@quest/types";
 
 export type { GameStatus, LoginResponse, SystemKey };
 
@@ -940,6 +949,38 @@ export const api = {
   updateAccount: (body: { newUsername?: string; currentPassword?: string; newPassword?: string }, token: string) =>
     request<{ updated: boolean }>("/api/auth/me", { method: "PATCH", body: JSON.stringify(body), token }),
 
+  // ── Screenshots ─────────────────────────────────────────────────────────
+  getScreenshotInbox: (token: string, signal?: AbortSignal) =>
+    request<{ items: ScreenshotInboxItem[] }>("/api/screenshots/inbox", { token, signal }),
+  getScreenshotInboxCount: (token: string, signal?: AbortSignal) =>
+    request<{ games: number }>("/api/screenshots/inbox/count", { token, signal }),
+  getGameScreenshots: (gameId: number, token: string, signal?: AbortSignal) =>
+    request<GameScreenshots>(`/api/games/${gameId}/screenshots`, { token, signal }),
+  updateScreenshots: (
+    ids: number[],
+    change: { status?: "keep" | "reject"; exportVariant?: ScreenshotVariant },
+    token: string,
+  ) =>
+    request<{ updated: number }>("/api/screenshots", {
+      method: "PATCH",
+      body: JSON.stringify({ ids, ...change }),
+      token,
+    }),
+  setScreenshotManualBoxes: (id: number, boxes: UiBox[], token: string) =>
+    request<{ changed: boolean }>(`/api/screenshots/${id}/manual-boxes`, {
+      method: "PUT",
+      body: JSON.stringify({ boxes }),
+      token,
+    }),
+  setScreenshotExportName: (gameId: number, name: string | null, token: string) =>
+    request<{ ok: true }>(`/api/games/${gameId}/screenshot-export-name`, {
+      method: "PUT",
+      body: JSON.stringify({ name }),
+      token,
+    }),
+  exportScreenshots: (gameId: number, token: string) =>
+    request<ScreenshotExportResult>(`/api/games/${gameId}/screenshots/export`, { method: "POST", token }),
+
   // ── Export ───────────────────────────────────────────────────────────────
   exportData: async (token: string): Promise<void> => {
     const BASE_URL = typeof window !== "undefined" ? "" : (process.env.NEXT_PUBLIC_API_BASE ?? "");
@@ -959,3 +1000,14 @@ export const api = {
     URL.revokeObjectURL(url);
   },
 };
+
+/** Image URLs for a screenshot. Plain <img> can't send the Bearer token; the API
+ *  accepts these on the trusted network instead. `v` busts the cache when the
+ *  mask (and so the cleaned copy) changes. */
+export function screenshotImageUrl(
+  id: number,
+  kind: "thumb" | "full" | "clean" | "clean-thumb" | "mask.png",
+  v?: number,
+): string {
+  return `/api/screenshots/${id}/${kind}${v != null ? `?v=${v}` : ""}`;
+}

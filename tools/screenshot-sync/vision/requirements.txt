@@ -1,0 +1,13 @@
+# Installed into %LOCALAPPDATA%\Quest\screenshot-sync\venv by install-task.ps1 -WithVision.
+# rapidocr_onnxruntime is installed separately with --no-deps: it depends on the
+# CPU "onnxruntime" package, which would clobber onnxruntime-directml (both ship
+# the same `onnxruntime` module).
+onnxruntime-directml>=1.17
+numpy
+opencv-python-headless
+pillow
+pyclipper
+shapely
+six
+pyyaml
+tqdm

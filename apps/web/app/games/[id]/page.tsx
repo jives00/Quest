@@ -21,6 +21,7 @@ import {
 import { GameShelf } from "@/components/game-shelf";
 import { GameMetadataEditor } from "@/components/game-metadata-editor";
 import { GameRematch } from "@/components/game-rematch";
+import { GameScreenshotsStrip } from "@/components/game-screenshots-strip";
 import { GameCompletionsCard } from "@/components/game-completions-card";
 import { loadGameNavContext } from "@/lib/game-nav-context";
 import { rarityLabel } from "@/lib/rarity";
@@ -750,6 +751,8 @@ export default function GameDetailPage() {
               )}
             </section>
           )}
+
+          {token && <GameScreenshotsStrip gameId={game.id} token={token} />}
 
           {/* Achievements */}
           <section className="mt-4">
