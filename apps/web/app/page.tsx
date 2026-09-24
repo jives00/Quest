@@ -59,21 +59,30 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
 
+// Hero art is multi-MB SteamGridDB PNGs. Routing them through /_next/image makes
+// the NAS download and re-encode each one before the browser sees a byte, so load
+// straight from the CDN instead, and fade in once it arrives.
+function HeroBackdrop({ src, alt }: { src: string; alt: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className="absolute right-0 top-0 h-full w-4/5">
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        unoptimized
+        priority
+        onLoad={() => setLoaded(true)}
+        className={`object-cover object-center transition-opacity duration-500 ${loaded ? "opacity-100" : "opacity-0"}`}
+      />
+    </div>
+  );
+}
+
 function HeroSection({ hero, summary }: { hero: DashboardHero | null; summary: DashboardSummary | null }) {
   return (
     <section className="relative overflow-hidden bg-black" style={{ minHeight: 240 }}>
-      {hero && (
-        <div className="absolute right-0 top-0 h-full w-4/5">
-          <Image
-            src={hero.heroPath}
-            alt={hero.title}
-            fill
-            sizes="80vw"
-            className="object-cover object-center"
-            priority
-          />
-        </div>
-      )}
+      {hero && <HeroBackdrop src={hero.heroPath} alt={hero.title} />}
 
       {/* Fade from solid black on the left into transparent, revealing the image on the right */}
       <div className="absolute inset-0 z-[1] bg-gradient-to-r from-black from-[25%] via-black/20 via-[55%] to-transparent" />
@@ -116,16 +125,7 @@ function NowPlayingHero({ nowPlaying, summary }: { nowPlaying: NowPlayingInfo; s
   return (
     <section className="relative overflow-hidden bg-black" style={{ minHeight: 240 }}>
       {(nowPlaying.heroPath ?? nowPlaying.coverPath) && (
-        <div className="absolute right-0 top-0 h-full w-4/5">
-          <Image
-            src={(nowPlaying.heroPath ?? nowPlaying.coverPath)!}
-            alt=""
-            fill
-            sizes="80vw"
-            className="object-cover object-center"
-            priority
-          />
-        </div>
+        <HeroBackdrop src={(nowPlaying.heroPath ?? nowPlaying.coverPath)!} alt="" />
       )}
 
       {/* Fade from solid black on the left into transparent, revealing the image on the right */}
@@ -364,6 +364,9 @@ export default function DashboardPage() {
 
     async function load() {
       if (!token) return;
+      // Hero art is the slowest thing on the page — start it first and render it
+      // as soon as it lands rather than behind every other dashboard call.
+      api.getDashboardHero(token, heroSeedRef.current).then(setHero).catch(() => {});
       try {
         const [dash, plats] = await Promise.all([
           api.getDashboard(token),
@@ -379,14 +382,12 @@ export default function DashboardPage() {
 
       Promise.allSettled([
         api.getDashboardSummary(token),
-        api.getDashboardHero(token, heroSeedRef.current),
         api.getDashboardDailyStats(token),
         api.getDashboardPlaying(token),
         api.getDashboardBacklog(token),
         api.getDashboardUpcoming(token),
-      ]).then(([sumRes, heroRes, dailyRes, playRes, backlogRes, upcomingRes]) => {
+      ]).then(([sumRes, dailyRes, playRes, backlogRes, upcomingRes]) => {
         if (sumRes.status === "fulfilled") setSummary(sumRes.value);
-        if (heroRes.status === "fulfilled") setHero(heroRes.value);
         if (dailyRes.status === "fulfilled") setDailyStats(dailyRes.value);
         if (playRes.status === "fulfilled") setPlayingGames(playRes.value);
         if (backlogRes.status === "fulfilled") setBacklogGames(backlogRes.value);
