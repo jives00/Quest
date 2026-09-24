@@ -183,7 +183,10 @@ export async function getAchievements(xuid: string, titleId: string): Promise<Xb
   };
   try {
     data = await xblGet(`/achievements/player/${xuid}/${titleId}`);
-  } catch {
+  } catch (err) {
+    // Rate limiting must reach the poller so it stops for this run; returning []
+    // made every throttled title look like it had nothing to sync.
+    if (String(err).includes('429')) throw err;
     return [];
   }
 

@@ -62,6 +62,33 @@ async function setHealth(
   );
 }
 
+/** Titles whose achievements predate rarity capture, re-fetched per poll. OpenXBL's
+ *  request quota is shared with presence polling, so the catch-up is paced. */
+const RARITY_BACKFILL_PER_POLL = 10;
+/** Games already backfilled this process — Xbox 360 titles never carry rarity, and
+ *  without this they'd be re-fetched every poll forever. */
+const rarityTried = new Set<number>();
+
+/** What we already hold for a game's Xbox achievements (gates the per-title fetch). */
+async function xboxAchievementState(
+  userId: number,
+  gameId: number,
+): Promise<{ stored: number; earned: number; withPct: number }> {
+  const [rows] = await getPool().query<RowDataPacket[]>(
+    `SELECT COUNT(*) AS stored, COUNT(ua.id) AS earned, COUNT(a.global_pct) AS with_pct
+       FROM achievements a
+       LEFT JOIN user_achievements ua
+         ON ua.game_id = a.game_id AND ua.api_name = a.api_name AND ua.user_id = ?
+      WHERE a.game_id = ? AND a.source = 'xbox'`,
+    [userId, gameId],
+  );
+  return {
+    stored: Number(rows[0]?.stored ?? 0),
+    earned: Number(rows[0]?.earned ?? 0),
+    withPct: Number(rows[0]?.with_pct ?? 0),
+  };
+}
+
 function titleKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '');
 }
@@ -74,6 +101,8 @@ function titleKey(s: string): string {
 async function syncLibrary(account: XboxAccount): Promise<Map<string, number>> {
   const titles = await getTitleHistory();
   const nameToGame = new Map<string, number>();
+  let rarityBackfills = 0;
+  let throttled = false;
 
   for (const t of titles) {
     if (!t.name) continue;
@@ -88,13 +117,36 @@ async function syncLibrary(account: XboxAccount): Promise<Map<string, number>> {
     await recordOwnership(account.userId, gameId, 'xbox', t.lastPlayed);
     nameToGame.set(titleKey(t.name), gameId);
 
-    // Only fetch achievements when the title actually has some unlocked (bounds calls).
-    if (t.currentAchievements > 0) {
-      try {
-        const achievements = await getAchievements(account.xuid, t.titleId);
-        await upsertAchievements(account.userId, gameId, 'xbox', achievements);
-      } catch (err) {
-        console.error(`Xbox achievements sync failed for title ${t.titleId}:`, err);
+    // One OpenXBL call per title, against a quota presence polling also draws on —
+    // fetching every title each poll ran it dry and 429'd most of them. So only
+    // fetch when there are unlocks we haven't stored, or rarity is still missing.
+    if (t.currentAchievements > 0 && !throttled) {
+      const state = await xboxAchievementState(account.userId, gameId);
+      let fetch = state.stored === 0 || state.earned < t.currentAchievements;
+      if (
+        !fetch &&
+        state.withPct === 0 &&
+        !rarityTried.has(gameId) &&
+        rarityBackfills < RARITY_BACKFILL_PER_POLL
+      ) {
+        rarityBackfills++;
+        rarityTried.add(gameId);
+        fetch = true;
+      }
+      if (fetch) {
+        try {
+          const achievements = await getAchievements(account.xuid, t.titleId);
+          await upsertAchievements(account.userId, gameId, 'xbox', achievements);
+        } catch (err) {
+          if (String(err).includes('429')) {
+            // Out of quota — the rest would fail too. Pick up next poll.
+            throttled = true;
+            rarityTried.delete(gameId); // never actually fetched — retry next poll
+            console.warn(`Xbox achievements: OpenXBL rate limit hit at title ${t.titleId}, resuming next poll`);
+          } else {
+            console.error(`Xbox achievements sync failed for title ${t.titleId}:`, err);
+          }
+        }
       }
     }
   }
