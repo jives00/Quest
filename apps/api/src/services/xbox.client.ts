@@ -62,6 +62,8 @@ export interface XboxAchievement {
   icon: string | null;
   achieved: boolean;
   unlockedAt: Date | null;
+  /** Share of Xbox players who unlocked it (0-100); null for Xbox 360 titles. */
+  globalPct: number | null;
 }
 
 function parseDate(s: string | undefined | null): Date | null {
@@ -172,6 +174,7 @@ export async function getAchievements(xuid: string, titleId: string): Promise<Xb
       name?: string;
       progressState?: string;
       progression?: { timeUnlocked?: string };
+      rarity?: { currentPercentage?: number | string };
       // Legacy Xbox 360 shape:
       unlocked?: boolean;
       timeUnlocked?: string;
@@ -192,6 +195,7 @@ export async function getAchievements(xuid: string, titleId: string): Promise<Xb
     .map((a): XboxAchievement => {
       const achieved = a.progressState === 'Achieved' || a.unlocked === true;
       const icon = (a.mediaAssets ?? []).find(m => m.type === 'Icon')?.url ?? null;
+      const pct = a.rarity?.currentPercentage != null ? Number(a.rarity.currentPercentage) : NaN;
       return {
         apiName: String(a.id),
         name: a.name ?? `Achievement ${a.id}`,
@@ -200,6 +204,7 @@ export async function getAchievements(xuid: string, titleId: string): Promise<Xb
         unlockedAt: achieved
           ? parseDate(a.progression?.timeUnlocked ?? a.timeUnlocked)
           : null,
+        globalPct: Number.isFinite(pct) ? pct : null,
       };
     });
 }

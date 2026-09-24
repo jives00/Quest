@@ -555,7 +555,7 @@ export async function deleteGame(gameId: number): Promise<boolean> {
  * Never overwrites fields that were manually set (match_status = 'manual').
  * Returns true if the game was found and enrichment was attempted.
  */
-export async function enrichGame(gameId: number, userId?: number): Promise<boolean> {
+export async function enrichGame(gameId: number): Promise<boolean> {
   const pool = getPool();
 
   // Look up the Steam app ID and current game state
@@ -692,88 +692,89 @@ export async function enrichGame(gameId: number, userId?: number): Promise<boole
     params,
   );
 
-  // Achievement metadata + DLC grouping — best-effort, only when the game has
-  // a Steam ID and achievements in the DB. Each step skipped silently on failure.
-  if (steamAppId) {
-    try {
-      const [achRows] = await pool.query<RowDataPacket[]>(
-        `SELECT api_name, name FROM achievements WHERE game_id = ?`,
-        [gameId],
-      );
-      if (achRows.length > 0) {
-        const appIdNum = Number(steamAppId);
-
-        // Look up the user's Steam ID if we have a userId (for unlocked hidden achievement descriptions)
-        let steamId64: string | null = null;
-        if (userId) {
-          const [accountRows] = await pool.query<RowDataPacket[]>(
-            `SELECT steam_id64 FROM platform_accounts WHERE user_id = ? AND platform = 'steam' AND enabled = 1 LIMIT 1`,
-            [userId],
-          );
-          steamId64 = (accountRows[0]?.steam_id64 as string | null) ?? null;
-        }
-
-        // IPlayerService/GetGameAchievements/v1 returns hidden descriptions + global % in one call
-        const schema = await getGameAchievementsV1(appIdNum);
-        const meta = new Map(schema.map(s => [s.apiName, s]));
-
-        for (const row of achRows) {
-          const apiName = row.api_name as string;
-          const m = meta.get(apiName);
-          await pool.query(
-            `UPDATE achievements SET description = ?, is_hidden = ?, global_pct = ?
-              WHERE game_id = ? AND api_name = ?`,
-            [m?.description ?? null, m?.isHidden ? 1 : 0, m?.globalPct ?? null, gameId, apiName],
-          );
-        }
-
-        // DLC grouping — TrueSteamAchievements exposes display names, so match
-        // those against this game's stored achievement names (Steam doesn't tag
-        // achievements by DLC, and dlc_app_id stays null — we only have names).
-        const dlcGroups = await getTrueSteamAchievementGroups(appIdNum);
-        if (dlcGroups.length > 0) {
-          const normalize = (s: string) =>
-            s.toLowerCase().replace(/\s+/g, ' ').trim();
-          const apiNameByName = new Map<string, string>();
-          for (const row of achRows) {
-            const nm = row.name as string | null;
-            if (nm) apiNameByName.set(normalize(nm), row.api_name as string);
-          }
-
-          // Reset any prior grouping so removed/renamed groups don't linger.
-          await pool.query(
-            `UPDATE achievements SET dlc_app_name = NULL WHERE game_id = ?`,
-            [gameId],
-          );
-
-          let matched = 0;
-          for (const group of dlcGroups) {
-            const apiNames = group.achievementNames
-              .map((n) => apiNameByName.get(normalize(n)))
-              .filter((v): v is string => Boolean(v));
-            if (apiNames.length === 0) continue;
-            matched += apiNames.length;
-            const placeholders = apiNames.map(() => '?').join(', ');
-            await pool.query(
-              `UPDATE achievements SET dlc_app_name = ?
-                WHERE game_id = ? AND api_name IN (${placeholders})`,
-              [group.dlcName, gameId, ...apiNames],
-            );
-          }
-          const tsaTotal = dlcGroups.reduce((s, g) => s + g.achievementNames.length, 0);
-          if (matched < tsaTotal) {
-            console.warn(
-              `DLC grouping for game ${gameId}: matched ${matched}/${tsaTotal} TSA achievements by name`,
-            );
-          }
-        }
-      }
-    } catch (err) {
-      console.error(`Achievement enrichment failed for game ${gameId}:`, err);
-    }
-  }
+  if (steamAppId) await refreshSteamAchievementMeta(gameId, Number(steamAppId));
 
   return true;
+}
+
+/**
+ * Achievement metadata (description, hidden flag, global unlock %) + DLC grouping
+ * for a game's Steam achievements. Best-effort — logs and returns on failure.
+ *
+ * Shared by enrichGame and the Steam poller, which runs it as soon as it inserts
+ * new achievement rows so rarity doesn't wait for the next enrichment sweep.
+ *
+ * Scoped to source = 'steam': a game can also carry PSN/Xbox rows (which bring
+ * their own rarity), and Steam's schema would otherwise null those out.
+ */
+export async function refreshSteamAchievementMeta(gameId: number, appId: number): Promise<void> {
+  const pool = getPool();
+  try {
+    const [achRows] = await pool.query<RowDataPacket[]>(
+      `SELECT api_name, name FROM achievements WHERE game_id = ? AND source = 'steam'`,
+      [gameId],
+    );
+    if (achRows.length === 0) return;
+
+    // IPlayerService/GetGameAchievements/v1 returns hidden descriptions + global % in one call.
+    // It returns [] on failure — skip rather than wipe the stored values.
+    const schema = await getGameAchievementsV1(appId);
+    if (schema.length > 0) {
+      const meta = new Map(schema.map(s => [s.apiName, s]));
+      for (const row of achRows) {
+        const apiName = row.api_name as string;
+        const m = meta.get(apiName);
+        await pool.query(
+          `UPDATE achievements SET description = ?, is_hidden = ?, global_pct = ?
+            WHERE game_id = ? AND source = 'steam' AND api_name = ?`,
+          [m?.description ?? null, m?.isHidden ? 1 : 0, m?.globalPct ?? null, gameId, apiName],
+        );
+      }
+    }
+
+    // DLC grouping — TrueSteamAchievements exposes display names, so match
+    // those against this game's stored achievement names (Steam doesn't tag
+    // achievements by DLC, and dlc_app_id stays null — we only have names).
+    const dlcGroups = await getTrueSteamAchievementGroups(appId);
+    if (dlcGroups.length > 0) {
+      const normalize = (s: string) =>
+        s.toLowerCase().replace(/\s+/g, ' ').trim();
+      const apiNameByName = new Map<string, string>();
+      for (const row of achRows) {
+        const nm = row.name as string | null;
+        if (nm) apiNameByName.set(normalize(nm), row.api_name as string);
+      }
+
+      // Reset any prior grouping so removed/renamed groups don't linger.
+      await pool.query(
+        `UPDATE achievements SET dlc_app_name = NULL WHERE game_id = ? AND source = 'steam'`,
+        [gameId],
+      );
+
+      let matched = 0;
+      for (const group of dlcGroups) {
+        const apiNames = group.achievementNames
+          .map((n) => apiNameByName.get(normalize(n)))
+          .filter((v): v is string => Boolean(v));
+        if (apiNames.length === 0) continue;
+        matched += apiNames.length;
+        const placeholders = apiNames.map(() => '?').join(', ');
+        await pool.query(
+          `UPDATE achievements SET dlc_app_name = ?
+            WHERE game_id = ? AND source = 'steam' AND api_name IN (${placeholders})`,
+          [group.dlcName, gameId, ...apiNames],
+        );
+      }
+      const tsaTotal = dlcGroups.reduce((s, g) => s + g.achievementNames.length, 0);
+      if (matched < tsaTotal) {
+        console.warn(
+          `DLC grouping for game ${gameId}: matched ${matched}/${tsaTotal} TSA achievements by name`,
+        );
+      }
+    }
+  } catch (err) {
+    console.error(`Achievement enrichment failed for game ${gameId}:`, err);
+  }
 }
 
 // ---------------------------------------------------------------------------

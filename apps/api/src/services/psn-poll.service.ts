@@ -73,14 +73,19 @@ function titleKey(s: string): string {
 }
 
 const TROPHY_REFRESH_DAYS = 21;
+/** Stale titles whose trophies predate rarity capture, re-fetched per poll. Paced so
+ *  the one-time catch-up spreads over a few polls instead of bursting PSN. */
+const RARITY_BACKFILL_PER_POLL = 20;
 
-/** Whether we already have PSN trophy rows for a game (gates the heavy per-title fetch). */
-async function hasPsnAchievements(gameId: number): Promise<boolean> {
+/** What we already hold for a game's PSN trophies (gates the heavy per-title fetch). */
+async function psnTrophyState(gameId: number): Promise<'none' | 'no-rarity' | 'complete'> {
   const [rows] = await getPool().query<RowDataPacket[]>(
-    `SELECT 1 FROM achievements WHERE game_id = ? AND source = 'psn' LIMIT 1`,
+    `SELECT COUNT(*) AS n, COUNT(global_pct) AS with_pct
+       FROM achievements WHERE game_id = ? AND source = 'psn'`,
     [gameId],
   );
-  return rows.length > 0;
+  if (!Number(rows[0]?.n)) return 'none';
+  return Number(rows[0]?.with_pct) > 0 ? 'complete' : 'no-rarity';
 }
 
 // ---------------------------------------------------------------------------
@@ -137,6 +142,7 @@ async function syncLibrary(account: PsnAccount): Promise<Map<string, number>> {
  */
 async function syncTrophies(account: PsnAccount, nameToGame: Map<string, number>): Promise<void> {
   const trophyTitles = await getTrophyTitles(account.npsso);
+  let rarityBackfills = 0;
 
   for (const tt of trophyTitles) {
     let gameId = nameToGame.get(titleKey(tt.titleName));
@@ -156,12 +162,19 @@ async function syncTrophies(account: PsnAccount, nameToGame: Map<string, number>
     }
 
     // The per-title trophy fetch is the expensive call. Only do it when the title
-    // changed recently, or we don't yet have its trophies — so steady-state polls
-    // stay cheap while the first sync still backfills everything.
+    // changed recently, or we don't yet have its trophies (or their rarity) — so
+    // steady-state polls stay cheap while the first sync still backfills everything.
     const recentlyUpdated =
       tt.lastUpdated != null &&
       Date.now() - tt.lastUpdated.getTime() < TROPHY_REFRESH_DAYS * 86_400_000;
-    if (!recentlyUpdated && (await hasPsnAchievements(gameId))) continue;
+    if (!recentlyUpdated) {
+      const state = await psnTrophyState(gameId);
+      if (state === 'complete') continue;
+      if (state === 'no-rarity') {
+        if (rarityBackfills >= RARITY_BACKFILL_PER_POLL) continue;
+        rarityBackfills++;
+      }
+    }
 
     try {
       const trophies = await getTrophies(account.npsso, tt.npCommunicationId, tt.npServiceName);
@@ -175,6 +188,7 @@ async function syncTrophies(account: PsnAccount, nameToGame: Map<string, number>
           icon: tr.icon,
           achieved: tr.earned,
           unlockedAt: tr.earnedAt,
+          globalPct: tr.earnedRate,
         })),
       );
     } catch (err) {

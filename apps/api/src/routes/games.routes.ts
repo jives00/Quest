@@ -147,7 +147,7 @@ export async function gamesRoutes(app: FastifyInstance) {
       if (!Number.isInteger(gameId) || gameId <= 0) {
         return reply.status(400).send({ error: 'Invalid gameId' });
       }
-      const found = await enrichGame(gameId, userId(request));
+      const found = await enrichGame(gameId);
       if (!found) return reply.status(404).send({ error: 'Game not found' });
       const detail = await getGameDetail(userId(request), gameId);
       if (!detail) return reply.status(404).send({ error: 'Game not found' });

@@ -66,6 +66,8 @@ export interface PsnTrophy {
   icon: string | null;
   earned: boolean;
   earnedAt: Date | null;
+  /** Share of PSN players who earned it (0-100), or null when PSN omits it. */
+  earnedRate: number | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -320,7 +322,13 @@ export async function getTrophies(
       trophies?: Array<{ trophyId?: number; trophyName?: string; trophyIconUrl?: string }>;
     }>(npsso, `/trophy/v1/npCommunicationIds/${npCommunicationId}/trophyGroups/all/trophies${svc}`),
     psnGet<{
-      trophies?: Array<{ trophyId?: number; earned?: boolean; earnedDateTime?: string }>;
+      trophies?: Array<{
+        trophyId?: number;
+        earned?: boolean;
+        earnedDateTime?: string;
+        /** Decimal string, e.g. "12.3". Only on the per-user endpoint. */
+        trophyEarnedRate?: string;
+      }>;
     }>(npsso, `/trophy/v1/users/me/npCommunicationIds/${npCommunicationId}/trophyGroups/all/trophies${svc}`),
   ]);
 
@@ -332,12 +340,14 @@ export async function getTrophies(
     .filter(t => t.trophyId != null)
     .map((t): PsnTrophy => {
       const d = defMap.get(t.trophyId);
+      const rate = t.trophyEarnedRate != null ? parseFloat(t.trophyEarnedRate) : NaN;
       return {
         apiName: `trophy_${t.trophyId}`,
         name: d?.trophyName ?? `Trophy ${t.trophyId}`,
         icon: d?.trophyIconUrl ?? null,
         earned: t.earned === true,
         earnedAt: parseDate(t.earnedDateTime),
+        earnedRate: Number.isFinite(rate) ? rate : null,
       };
     });
 }

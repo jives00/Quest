@@ -12,6 +12,7 @@ import { resolveExternalId } from './matching.service';
 import { recordOwnership, autoAdvanceToPlaying } from './library.service';
 import { applyPlaytimeDelta, upsertAchievements } from './sessions.service';
 import { syncSteamWishlist } from './wishlist.service';
+import { refreshSteamAchievementMeta } from './games.service';
 import {
   updateNowPlaying,
   clearNowPlaying,
@@ -92,7 +93,7 @@ async function syncSteamAchievements(
   const schema = await getSchemaForGame(appId);
   const meta = new Map(schema.map(s => [s.apiName, s]));
 
-  await upsertAchievements(
+  const inserted = await upsertAchievements(
     account.userId,
     gameId,
     'steam',
@@ -107,6 +108,10 @@ async function syncSteamAchievements(
       };
     }),
   );
+
+  // New definitions arrive with only a name + icon. Fill rarity, descriptions
+  // and DLC groups now rather than waiting for the enrichment sweep.
+  if (inserted > 0) await refreshSteamAchievementMeta(gameId, appId);
 }
 
 // ---------------------------------------------------------------------------

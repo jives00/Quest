@@ -1,4 +1,4 @@
-import { RowDataPacket } from 'mysql2/promise';
+import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { getPool } from '../db';
 import { autoAdvanceToPlaying } from './library.service';
 import type { PollSource } from '../platforms';
@@ -133,9 +133,13 @@ export async function applyPlaytimeDelta(
 // ---------------------------------------------------------------------------
 // Achievement upsert (shared by every source that reports unlock state)
 //
-// Definitions are global per game (INSERT IGNORE keeps the first writer's text);
-// user unlock rows carry the timestamp that seeds the play-history timeline.
+// Definitions are global per game (the first writer's name/icon stick); user
+// unlock rows carry the timestamp that seeds the play-history timeline.
 // `unlockedAt` is a JS Date (or null for "earned, no timestamp").
+//
+// `globalPct` is the source's own rarity (PSN earn rate, Xbox rarity). It's
+// refreshed on every upsert but never nulled — Steam leaves it out here and
+// fills it via refreshSteamAchievementMeta instead.
 // ---------------------------------------------------------------------------
 
 export interface AchievementUpsert {
@@ -144,23 +148,29 @@ export interface AchievementUpsert {
   icon: string | null;
   achieved: boolean;
   unlockedAt: Date | null;
+  globalPct?: number | null;
 }
 
+/** Returns how many achievement definitions were newly inserted. */
 export async function upsertAchievements(
   userId: number,
   gameId: number,
   source: PollSource,
   achievements: AchievementUpsert[],
-): Promise<void> {
-  if (!achievements.length) return;
+): Promise<number> {
+  if (!achievements.length) return 0;
   const pool = getPool();
+  let inserted = 0;
 
   for (const a of achievements) {
-    await pool.query(
-      `INSERT IGNORE INTO achievements (game_id, source, api_name, name, icon)
-       VALUES (?, ?, ?, ?, ?)`,
-      [gameId, source, a.apiName, a.name, a.icon],
+    const [res] = await pool.query<ResultSetHeader>(
+      `INSERT INTO achievements (game_id, source, api_name, name, icon, global_pct)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE global_pct = COALESCE(VALUES(global_pct), global_pct)`,
+      [gameId, source, a.apiName, a.name, a.icon, a.globalPct ?? null],
     );
+    // affectedRows: 1 = inserted, 2 = existing row changed, 0 = unchanged.
+    if (res.affectedRows === 1) inserted++;
     if (a.achieved) {
       await pool.query(
         `INSERT INTO user_achievements (user_id, game_id, api_name, unlocked_at)
@@ -170,4 +180,5 @@ export async function upsertAchievements(
       );
     }
   }
+  return inserted;
 }
