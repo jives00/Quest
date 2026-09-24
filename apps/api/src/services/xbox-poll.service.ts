@@ -75,7 +75,7 @@ async function xboxAchievementState(
   gameId: number,
 ): Promise<{ stored: number; earned: number; withPct: number }> {
   const [rows] = await getPool().query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS stored, COUNT(ua.id) AS earned, COUNT(a.global_pct) AS with_pct
+    `SELECT COUNT(*) AS stored_count, COUNT(ua.id) AS earned, COUNT(a.global_pct) AS with_pct
        FROM achievements a
        LEFT JOIN user_achievements ua
          ON ua.game_id = a.game_id AND ua.api_name = a.api_name AND ua.user_id = ?
@@ -83,7 +83,7 @@ async function xboxAchievementState(
     [userId, gameId],
   );
   return {
-    stored: Number(rows[0]?.stored ?? 0),
+    stored: Number(rows[0]?.stored_count ?? 0),
     earned: Number(rows[0]?.earned ?? 0),
     withPct: Number(rows[0]?.with_pct ?? 0),
   };
