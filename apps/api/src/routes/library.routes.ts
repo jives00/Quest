@@ -4,6 +4,7 @@ import { GAME_STATUSES } from '@quest/types';
 import { authenticate } from '../middleware/auth';
 import { getPool } from '../db';
 import { ALL_PLATFORMS } from '../platforms';
+import { steamCapsuleUrl } from '../services/steam.client';
 
 function userId(request: FastifyRequest): number {
   return (request.user as { sub: number }).sub;
@@ -59,6 +60,9 @@ export async function libraryRoutes(app: FastifyInstance) {
         g.title,
         g.sort_title AS sortTitle,
         g.cover_path AS coverPath,
+        g.capsule_path AS capsulePath,
+        g.first_release_date AS firstReleaseDate,
+        g.metacritic,
         g.match_status AS matchStatus,
         gs.status AS status,
         g.genres,
@@ -72,7 +76,9 @@ export async function libraryRoutes(app: FastifyInstance) {
         ) AS achievementsEarned,
         (
           SELECT COUNT(*) FROM achievements a WHERE a.game_id = g.id
-        ) AS achievementsTotal
+        ) AS achievementsTotal,
+        (SELECT e.external_id FROM external_game_ids e
+          WHERE e.game_id = g.id AND e.source = 'steam_appid' LIMIT 1) AS steamAppId
       FROM games g
       LEFT JOIN game_status gs ON gs.user_id = ? AND gs.game_id = g.id
       WHERE (
@@ -154,6 +160,13 @@ export async function libraryRoutes(app: FastifyInstance) {
       id: r.id as number,
       title: r.title as string,
       coverPath: r.coverPath as string | null,
+      // Same resolution as list rows: stored capsule, then the derived Steam
+      // URL. The wishlist renders these as wide rows.
+      capsulePath:
+        (r.capsulePath as string | null) ??
+        steamCapsuleUrl(r.steamAppId as string | null),
+      firstReleaseDate: r.firstReleaseDate as string | null,
+      metacritic: r.metacritic != null ? Number(r.metacritic) : null,
       matchStatus: r.matchStatus as string,
       status: r.status as string,
       platforms: r.platformsOwned ? String(r.platformsOwned).split(',') : [],
