@@ -609,7 +609,8 @@ export async function getGameScreenshots(gameId: number): Promise<GameScreenshot
   const [rows] = await getPool().query<RowDataPacket[]>(
     `SELECT id, game_id, taken_at, width, height, status, status_source, sharpness, luma_mean,
             luma_std, duplicate_of, hud_blocks, ui_boxes, manual_boxes, has_ui, mask_version,
-            inpaint_status, inpaint_error, cleaned_path, export_variant, staging_path, exported_name
+            inpaint_status, inpaint_error, cleaned_path, export_variant, staging_path, exported_name,
+            updated_at
        FROM screenshots WHERE game_id = ? ORDER BY taken_at, id`,
     [gameId],
   );
@@ -636,6 +637,8 @@ export async function getGameScreenshots(gameId: number): Promise<GameScreenshot
     staged: r.staging_path != null,
     exportedName: r.exported_name,
     maskVersion: r.mask_version,
+    // Any row write moves this, including the one that lands a new clean.
+    cleanVersion: r.updated_at ? (r.updated_at as Date).getTime() : r.mask_version,
   }));
 
   let nextNumber: number | null = null;

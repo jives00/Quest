@@ -45,6 +45,11 @@ export interface Screenshot {
   exportedName: string | null;
   /** Bumps whenever the mask changes -- append to image URLs to bust caches. */
   maskVersion: number;
+  /**
+   * Cache-buster for the cleaned copy. maskVersion bumps when the mask is saved,
+   * before the agent repaints, so on its own it would pin the previous clean.
+   */
+  cleanVersion: number;
 }
 
 export interface ScreenshotInboxItem {

@@ -75,7 +75,7 @@ function shownVariant(s: Screenshot): ScreenshotVariant {
 
 function thumbUrl(s: Screenshot): string {
   return shownVariant(s) === "cleaned"
-    ? screenshotImageUrl(s.id, "clean-thumb", s.maskVersion)
+    ? screenshotImageUrl(s.id, "clean-thumb", s.cleanVersion)
     : screenshotImageUrl(s.id, "thumb");
 }
 
@@ -764,7 +764,7 @@ function Lightbox({
 
   const boxes = [...shot.uiBoxes, ...manual];
   const original = screenshotImageUrl(shot.id, "full");
-  const cleaned = screenshotImageUrl(shot.id, "clean", shot.maskVersion);
+  const cleaned = screenshotImageUrl(shot.id, "clean", shot.cleanVersion);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex flex-col" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>

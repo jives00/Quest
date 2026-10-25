@@ -70,7 +70,7 @@ export function GameScreenshotsStrip({ gameId, token }: { gameId: number; token:
               <img
                 src={
                   showsCleaned(s)
-                    ? screenshotImageUrl(s.id, "clean-thumb", s.maskVersion)
+                    ? screenshotImageUrl(s.id, "clean-thumb", s.cleanVersion)
                     : screenshotImageUrl(s.id, "thumb")
                 }
                 alt=""
@@ -94,7 +94,7 @@ export function GameScreenshotsStrip({ gameId, token }: { gameId: number; token:
           <img
             src={
               showsCleaned(open)
-                ? screenshotImageUrl(open.id, "clean", open.maskVersion)
+                ? screenshotImageUrl(open.id, "clean", open.cleanVersion)
                 : screenshotImageUrl(open.id, "full")
             }
             alt=""
