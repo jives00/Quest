@@ -700,13 +700,18 @@ function Lightbox({
   const [saving, setSaving] = useState(false);
   const frameRef = useRef<HTMLDivElement>(null);
 
+  // Keyed on the saved boxes' content, not the array: the background poll hands
+  // back a fresh array every few seconds, which would otherwise wipe in-progress
+  // drawing and flip back to the compare slider.
+  const savedBoxesKey = JSON.stringify(shot.manualBoxes);
   useEffect(() => {
     setManual(shot.manualBoxes);
     setDrawing(false);
     setSplit(50);
-  }, [shot.id, shot.manualBoxes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shot.id, savedBoxesKey]);
 
-  const dirty = JSON.stringify(manual) !== JSON.stringify(shot.manualBoxes);
+  const dirty = JSON.stringify(manual) !== savedBoxesKey;
   const compare = shot.hasCleaned && !drawing;
 
   const toFrac = (e: React.MouseEvent) => {
