@@ -199,6 +199,32 @@ export async function searchGames(
   return post<IgdbGame[]>('games', body);
 }
 
+// DLC, expansions, bundles, mods, episodes, seasons, forks, packs and updates.
+const NON_STANDALONE_GAME_TYPES = '1,2,3,5,6,7,12,13,14';
+const RECENT_RELEASE_WINDOW_DAYS = 180;
+// Sampled Nov 2026: real releases had 85+ hypes, title-collision shovelware 3 or fewer.
+const MIN_RECENT_RELEASE_HYPES = 10;
+
+/**
+ * Recent, anticipated standalone releases whose title contains `query`, newest first.
+ * IGDB's relevance search ignores release date, so a new game can rank below
+ * years of mods for the same title; callers merge these in ahead of it.
+ */
+export async function searchRecentReleases(query: string, limit = 3): Promise<IgdbGame[]> {
+  const term = query.replace(/["\\]/g, '');
+  const since = Math.floor(Date.now() / 1000) - RECENT_RELEASE_WINDOW_DAYS * 86400;
+
+  const body =
+    `${GAME_FIELDS}` +
+    ` where name ~ *"${term}"* & first_release_date >= ${since}` +
+    ` & hypes >= ${MIN_RECENT_RELEASE_HYPES}` +
+    ` & game_type != (${NON_STANDALONE_GAME_TYPES});` +
+    ` sort first_release_date desc;` +
+    ` limit ${limit};`;
+
+  return post<IgdbGame[]>('games', body);
+}
+
 /**
  * Fetch a single game by IGDB id with full metadata.
  */

@@ -2,6 +2,7 @@ import { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
 import { getPool } from '../db';
 import {
   searchGames as igdbSearch,
+  searchRecentReleases as igdbSearchRecent,
   getGameById as igdbGetById,
   getGameMedia as igdbGetMedia,
   coverUrl,
@@ -47,9 +48,40 @@ export interface GameSearchResult {
   platforms: string[];
 }
 
+const SEARCH_LIMIT = 30;
+const MAX_DROPPED_SEARCH_WORDS = 2;
+
+/**
+ * IGDB search only matches when every word is in the title, so "ocarina of time
+ * remake" finds nothing. On an empty result, retry without the trailing words.
+ */
+async function searchDroppingTrailingWords(
+  query: string,
+): Promise<{ results: IgdbGame[]; matchedQuery: string }> {
+  const words = query.split(/\s+/);
+  const minWords = Math.max(1, words.length - MAX_DROPPED_SEARCH_WORDS);
+
+  for (let count = words.length; count >= minWords; count--) {
+    const matchedQuery = words.slice(0, count).join(' ');
+    const results = await igdbSearch(matchedQuery, { limit: SEARCH_LIMIT });
+    if (results.length > 0) return { results, matchedQuery };
+  }
+  return { results: [], matchedQuery: query };
+}
+
 export async function searchIgdbGames(query: string): Promise<GameSearchResult[]> {
-  const results = await igdbSearch(query, { limit: 30 });
-  return results.map((g: IgdbGame) => ({
+  const { results, matchedQuery } = await searchDroppingTrailingWords(query);
+
+  // Best-effort: a failure here must not lose the relevance results.
+  const recent = await igdbSearchRecent(matchedQuery).catch((err: unknown) => {
+    console.error('IGDB recent-release search failed:', err);
+    return [] as IgdbGame[];
+  });
+
+  const recentIds = new Set(recent.map(g => g.id));
+  const merged = [...recent, ...results.filter(g => !recentIds.has(g.id))].slice(0, SEARCH_LIMIT);
+
+  return merged.map((g: IgdbGame) => ({
     igdbId: g.id,
     name: g.name,
     year: g.first_release_date ? new Date(g.first_release_date * 1000).getFullYear() : null,
